@@ -1,0 +1,9 @@
+.DS_Store
+*.log
+*.wav
+*.mp3
+*.opus
+*.flac
+.env
+.env.*
+!.env.example
