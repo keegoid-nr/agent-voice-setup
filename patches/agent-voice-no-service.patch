@@ -1,0 +1,24 @@
+diff --git a/install.sh b/install.sh
+index e5a9c30..bf2065b 100755
+--- a/install.sh
++++ b/install.sh
+@@ -28,0 +29 @@ CODEX_CONFIG_MODE="${AGENT_VOICE_INSTALL_CODEX_CONFIG:-ask}"
++INSTALL_SERVICE=1
+@@ -32 +33 @@ usage() {
+-Usage: install.sh [--dry-run] [--source-dir PATH] [--ref REF] [--archive-sha256 SHA256] [--codex-config|--no-codex-config]
++Usage: install.sh [--dry-run] [--source-dir PATH] [--ref REF] [--archive-sha256 SHA256] [--codex-config|--no-codex-config] [--no-service]
+@@ -65,0 +67,4 @@ while [[ $# -gt 0 ]]; do
++    --no-service)
++      INSTALL_SERVICE=0
++      shift
++      ;;
+@@ -463 +468,5 @@ esac
+-write_plist
++if [[ "$INSTALL_SERVICE" -eq 1 ]]; then
++  write_plist
++else
++  say "Skipped launchd service installation"
++fi
+@@ -496 +505 @@ remove_legacy_artifacts
+-if [[ "$TEST_MODE" != "1" && "$DRY_RUN" -ne 1 ]]; then
++if [[ "$INSTALL_SERVICE" -eq 1 && "$TEST_MODE" != "1" && "$DRY_RUN" -ne 1 ]]; then

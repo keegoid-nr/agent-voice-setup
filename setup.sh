@@ -12,8 +12,11 @@ readonly VOICE_SERVER_URL="http://127.0.0.1:8880"
 readonly CLAUDE_BLOCK_BEGIN="<!-- agent-voice-setup:claude-begin -->"
 readonly CLAUDE_BLOCK_END="<!-- agent-voice-setup:claude-end -->"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${AGENT_VOICE_HOME:-$HOME/.agent-voice}"
 SOURCE_DIR="$STATE_DIR/sources/${AGENT_VOICE_COMMIT:0:12}"
+NO_SERVICE_PATCH="$SCRIPT_DIR/patches/agent-voice-no-service.patch"
+SESSION_HELPER_SOURCE="$SCRIPT_DIR/scripts/agent-voice-session"
 BACKUP_ID="setup-$(date '+%Y%m%d%H%M%S')-$$"
 BACKUP_DIR="$STATE_DIR/backups/$BACKUP_ID"
 CLAUDE_DIR="$HOME/.claude"
@@ -22,8 +25,14 @@ CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
 LOCAL_BIN="$HOME/.local/bin"
 AGENT_SPEAK="$LOCAL_BIN/agent-speak"
 AGENT_VOICE_SUMMARY="$LOCAL_BIN/agent-voice-summary"
+AGENT_VOICE_SESSION="$LOCAL_BIN/agent-voice-session"
+AGENT_VOICE_SESSION_BIN="$STATE_DIR/bin/agent-voice-session"
+LAUNCHD_LABEL="com.keegoid.agent-voice"
+LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
 DRY_RUN=0
 PLAY_TEST=1
+SERVICE_MODE="launchd"
+FOREGROUND_SERVICE_STARTED=0
 TEMP_ROOT=""
 
 usage() {
@@ -31,9 +40,15 @@ usage() {
 Usage: ./setup.sh [options]
 
 Options:
-  --dry-run       Print the planned operations without changing the laptop.
-  --no-play       Generate and validate the test WAV without playing it.
-  -h, --help      Show this help.
+  --service-mode MODE  Server lifecycle: launchd (default), session, or foreground.
+  --dry-run           Print the planned operations without changing the laptop.
+  --no-play           Generate and validate the test WAV without playing it.
+  -h, --help          Show this help.
+
+Use session mode when launchd is unavailable. Claude Code will start a
+restart-capable supervisor from an asynchronous SessionStart hook. Foreground
+mode installs the same supervisor but requires `agent-voice-session run` in a
+terminal whenever voice is wanted.
 USAGE
 }
 
@@ -61,6 +76,9 @@ run() {
 }
 
 cleanup() {
+  if [[ "$FOREGROUND_SERVICE_STARTED" -eq 1 && -x "$AGENT_VOICE_SESSION" ]]; then
+    "$AGENT_VOICE_SESSION" stop >/dev/null 2>&1 || true
+  fi
   if [[ -n "$TEMP_ROOT" && -d "$TEMP_ROOT" ]]; then
     rm -rf -- "$TEMP_ROOT"
   fi
@@ -69,6 +87,11 @@ cleanup() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --service-mode)
+        [[ $# -ge 2 ]] || die "missing value for --service-mode"
+        SERVICE_MODE="$2"
+        shift 2
+        ;;
       --dry-run)
         DRY_RUN=1
         shift
@@ -87,6 +110,10 @@ parse_args() {
         ;;
     esac
   done
+  case "$SERVICE_MODE" in
+    launchd|session|foreground) ;;
+    *) die "invalid service mode: $SERVICE_MODE (expected launchd, session, or foreground)" ;;
+  esac
 }
 
 require_platform() {
@@ -155,14 +182,122 @@ clone_agent_voice() {
   say "Cloned verified agent-voice commit $AGENT_VOICE_COMMIT"
 }
 
+is_managed_session_helper() {
+  local helper="$1"
+  grep -Fq '# agent-voice-setup-session-supervisor' "$helper" 2>/dev/null
+}
+
+stop_managed_session_supervisor() {
+  if [[ -x "$AGENT_VOICE_SESSION" ]] && is_managed_session_helper "$AGENT_VOICE_SESSION"; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      would "$AGENT_VOICE_SESSION" stop
+    else
+      "$AGENT_VOICE_SESSION" stop >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+remove_managed_session_helper() {
+  if [[ -e "$AGENT_VOICE_SESSION" ]] && is_managed_session_helper "$AGENT_VOICE_SESSION"; then
+    backup_path "$AGENT_VOICE_SESSION"
+    run rm -f -- "$AGENT_VOICE_SESSION"
+  fi
+}
+
+disable_launchd_for_fallback() {
+  local domain
+  domain="gui/$(id -u)"
+
+  if command -v launchctl >/dev/null 2>&1 && \
+    launchctl print "$domain/$LAUNCHD_LABEL" >/dev/null 2>&1; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      would launchctl bootout "$domain/$LAUNCHD_LABEL"
+    else
+      launchctl bootout "$domain/$LAUNCHD_LABEL" ||
+        die "could not stop the existing $LAUNCHD_LABEL service"
+    fi
+  fi
+  if [[ -e "$LAUNCHD_PLIST" ]]; then
+    backup_path "$LAUNCHD_PLIST"
+    run rm -f -- "$LAUNCHD_PLIST"
+  fi
+}
+
+prepare_service_transition() {
+  case "$SERVICE_MODE" in
+    launchd)
+      stop_managed_session_supervisor
+      remove_managed_session_helper
+      ;;
+    session|foreground)
+      stop_managed_session_supervisor
+      disable_launchd_for_fallback
+      ;;
+  esac
+}
+
+prepare_no_service_source() {
+  local patched_source="$TEMP_ROOT/agent-voice-no-service"
+  local source_archive="$TEMP_ROOT/agent-voice-source.tar"
+
+  [[ -f "$NO_SERVICE_PATCH" ]] || die "missing no-service patch: $NO_SERVICE_PATCH"
+  git -C "$SOURCE_DIR" archive --format=tar HEAD -o "$source_archive"
+  mkdir -p "$patched_source"
+  tar -xf "$source_archive" -C "$patched_source"
+  git -C "$patched_source" apply --unidiff-zero --check "$NO_SERVICE_PATCH" ||
+    die "the no-service patch no longer matches the pinned agent-voice installer"
+  git -C "$patched_source" apply --unidiff-zero "$NO_SERVICE_PATCH"
+  printf '%s\n' "$patched_source"
+}
+
 install_agent_voice() {
+  local install_source="$SOURCE_DIR"
+
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    would "$SOURCE_DIR/install.sh" --source-dir "$SOURCE_DIR" --no-codex-config
+    if [[ "$SERVICE_MODE" == "launchd" ]]; then
+      would "$SOURCE_DIR/install.sh" --source-dir "$SOURCE_DIR" --no-codex-config
+    else
+      would apply-no-service-patch "$NO_SERVICE_PATCH"
+      would patched-agent-voice-install --source-dir verified-source --no-codex-config --no-service
+    fi
     return 0
   fi
 
   [[ -x "$SOURCE_DIR/install.sh" ]] || die "verified source is missing executable install.sh"
-  "$SOURCE_DIR/install.sh" --source-dir "$SOURCE_DIR" --no-codex-config
+  if [[ "$SERVICE_MODE" != "launchd" ]]; then
+    install_source="$(prepare_no_service_source)"
+  fi
+  if [[ "$SERVICE_MODE" == "launchd" ]]; then
+    "$install_source/install.sh" --source-dir "$install_source" --no-codex-config
+  else
+    "$install_source/install.sh" --source-dir "$install_source" --no-codex-config --no-service
+  fi
+}
+
+install_session_helper() {
+  local rendered
+
+  [[ "$SERVICE_MODE" != "launchd" ]] || return 0
+  [[ -f "$SESSION_HELPER_SOURCE" ]] || die "missing session helper: $SESSION_HELPER_SOURCE"
+  backup_path "$AGENT_VOICE_SESSION"
+  backup_path "$AGENT_VOICE_SESSION_BIN"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    would install-session-supervisor "$AGENT_VOICE_SESSION_BIN" "$AGENT_VOICE_SESSION"
+    return 0
+  fi
+
+  mkdir -p "$STATE_DIR/bin" "$LOCAL_BIN"
+  cp "$SESSION_HELPER_SOURCE" "$AGENT_VOICE_SESSION_BIN"
+  chmod 755 "$AGENT_VOICE_SESSION_BIN"
+  rendered="$(mktemp "$TEMP_ROOT/agent-voice-session-shim.XXXXXX")"
+  cat >"$rendered" <<EOF
+#!/usr/bin/env bash
+# agent-voice-setup-session-supervisor
+export AGENT_VOICE_HOME="\${AGENT_VOICE_HOME:-$STATE_DIR}"
+exec "$AGENT_VOICE_SESSION_BIN" "\$@"
+EOF
+  mv "$rendered" "$AGENT_VOICE_SESSION"
+  chmod 755 "$AGENT_VOICE_SESSION"
 }
 
 download_qwen_model() {
@@ -354,10 +489,87 @@ configure_claude_permission() {
   chmod 600 "$CLAUDE_SETTINGS"
 }
 
+configure_claude_session_hook() {
+  local command temp_settings
+  command="\"$AGENT_VOICE_SESSION\" start"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ "$SERVICE_MODE" == "session" ]]; then
+      would add-claude-session-start-hook "$command"
+    else
+      would remove-claude-session-start-hook "$command"
+    fi
+    return 0
+  fi
+
+  temp_settings="$(mktemp "$TEMP_ROOT/claude-session-hook.XXXXXX")"
+  jq --arg command "$command" --arg mode "$SERVICE_MODE" '
+    .hooks = (.hooks // {})
+    | .hooks.SessionStart = (
+        [(.hooks.SessionStart // [])[]
+          | select(
+              ([.hooks[]? | select(.type? == "command") | .command?]
+                | index($command)) == null
+            )
+        ]
+      )
+    | if $mode == "session"
+      then .hooks.SessionStart += [{
+        hooks: [{
+          type: "command",
+          command: $command,
+          timeout: 45,
+          async: true
+        }]
+      }]
+      else .
+      end
+  ' "$CLAUDE_SETTINGS" >"$temp_settings" ||
+    die "could not merge the SessionStart hook into $CLAUDE_SETTINGS"
+  mv "$temp_settings" "$CLAUDE_SETTINGS"
+  chmod 600 "$CLAUDE_SETTINGS"
+}
+
 configure_claude() {
-  say "Configuring Claude Code voice timing and helper permission"
+  say "Configuring Claude Code voice timing, helper permission, and server lifecycle"
   write_claude_instructions
   configure_claude_permission
+  configure_claude_session_hook
+}
+
+start_selected_service() {
+  case "$SERVICE_MODE" in
+    launchd)
+      return 0
+      ;;
+    session)
+      say "Starting restart-capable user-session voice supervisor"
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        would "$AGENT_VOICE_SESSION" start
+      else
+        "$AGENT_VOICE_SESSION" start
+      fi
+      ;;
+    foreground)
+      say "Starting a temporary voice supervisor for the installation test"
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        would "$AGENT_VOICE_SESSION" start
+      else
+        "$AGENT_VOICE_SESSION" start
+        FOREGROUND_SERVICE_STARTED=1
+      fi
+      ;;
+  esac
+}
+
+stop_temporary_foreground_service() {
+  [[ "$SERVICE_MODE" == "foreground" ]] || return 0
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    would "$AGENT_VOICE_SESSION" stop
+    return 0
+  fi
+  "$AGENT_VOICE_SESSION" stop
+  FOREGROUND_SERVICE_STARTED=0
 }
 
 wait_for_json_endpoint() {
@@ -431,6 +643,18 @@ print_summary() {
   say "Local agent voice setup passed."
   say "Voice server: $VOICE_SERVER_URL"
   say "Model: $QWEN_MODEL_ID@$QWEN_MODEL_REVISION"
+  say "Service mode: $SERVICE_MODE"
+  case "$SERVICE_MODE" in
+    launchd)
+      say "Lifecycle: launchd starts at login and restarts the server"
+      ;;
+    session)
+      say "Lifecycle: Claude SessionStart launches $AGENT_VOICE_SESSION start"
+      ;;
+    foreground)
+      say "Lifecycle: run $AGENT_VOICE_SESSION run in a terminal before using voice"
+      ;;
+  esac
   say "Claude instructions: $CLAUDE_INSTRUCTIONS"
   say "Claude settings: $CLAUDE_SETTINGS"
   say "Backups: $BACKUP_DIR"
@@ -448,10 +672,14 @@ main() {
 
   install_dependencies
   clone_agent_voice
+  prepare_service_transition
   install_agent_voice
+  install_session_helper
   download_qwen_model
   configure_claude
+  start_selected_service
   run_voice_test
+  stop_temporary_foreground_service
   print_summary
 }
 
