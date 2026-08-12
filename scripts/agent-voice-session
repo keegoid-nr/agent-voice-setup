@@ -1,0 +1,244 @@
+#!/usr/bin/env bash
+# agent-voice-setup-session-supervisor
+# Keep the loopback agent-voice server alive without launchd.
+
+set -uo pipefail
+
+STATE_DIR="${AGENT_VOICE_HOME:-$HOME/.agent-voice}"
+APP_DIR="$STATE_DIR/app"
+PYTHON="$APP_DIR/.venv/bin/python"
+RUN_DIR="$STATE_DIR/run"
+LOG_DIR="$STATE_DIR/logs"
+PID_FILE="$RUN_DIR/session-supervisor.pid"
+SUPERVISOR_LOCK="$RUN_DIR/session-supervisor.lock"
+START_LOCK="$RUN_DIR/session-start.lock"
+HEALTH_URL="${AGENT_VOICE_HEALTH_URL:-http://127.0.0.1:8880/v1/health}"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SELF="$SELF_DIR/$(basename "${BASH_SOURCE[0]}")"
+CHILD_PID=""
+
+usage() {
+  cat <<'USAGE'
+Usage: agent-voice-session <start|stop|restart|status|logs|run>
+
+  start    Start a detached user-session supervisor.
+  stop     Stop the supervisor and its voice server.
+  restart  Restart the supervisor.
+  status   Report supervisor and server health.
+  logs     Follow supervisor and server logs.
+  run      Run the restart supervisor in the foreground.
+USAGE
+}
+
+say() {
+  printf '%s\n' "$*"
+}
+
+is_pid() {
+  [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
+read_supervisor_pid() {
+  local pid=""
+  [[ -f "$PID_FILE" ]] || return 1
+  IFS= read -r pid <"$PID_FILE" || return 1
+  is_pid "$pid" || return 1
+  printf '%s\n' "$pid"
+}
+
+is_supervisor_pid() {
+  local pid="$1"
+  local command_line=""
+  kill -0 "$pid" 2>/dev/null || return 1
+  command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  if [[ -n "$command_line" ]]; then
+    [[ "$command_line" == *"$SELF"*" run"* ]]
+    return
+  fi
+  # Some managed environments deny process inspection. In that case, trust the
+  # PID only while the supervisor's atomically-created lock is also present.
+  [[ -d "$SUPERVISOR_LOCK" ]]
+}
+
+server_is_healthy() {
+  curl -fsS --max-time 2 "$HEALTH_URL" >/dev/null 2>&1
+}
+
+cleanup_supervisor() {
+  if [[ -n "$CHILD_PID" ]] && kill -0 "$CHILD_PID" 2>/dev/null; then
+    kill "$CHILD_PID" 2>/dev/null || true
+    wait "$CHILD_PID" 2>/dev/null || true
+  fi
+  rm -f -- "$PID_FILE"
+  rmdir "$SUPERVISOR_LOCK" 2>/dev/null || true
+}
+
+stop_from_signal() {
+  exit 0
+}
+
+run_supervisor() {
+  local exit_code=0
+
+  [[ -x "$PYTHON" ]] || {
+    printf 'agent-voice-session: missing Python runtime: %s\n' "$PYTHON" >&2
+    return 1
+  }
+  mkdir -p "$RUN_DIR" "$LOG_DIR"
+  if server_is_healthy; then
+    printf 'agent-voice-session: port 8880 already has a healthy voice server not owned by this supervisor\n' >&2
+    return 1
+  fi
+  if ! mkdir "$SUPERVISOR_LOCK" 2>/dev/null; then
+    printf 'agent-voice-session: another supervisor is already running\n' >&2
+    return 1
+  fi
+
+  printf '%s\n' "$$" >"$PID_FILE"
+  trap cleanup_supervisor EXIT
+  trap stop_from_signal INT TERM HUP
+  say "$(date -u '+%Y-%m-%dT%H:%M:%SZ') session supervisor started"
+
+  while true; do
+    (
+      cd "$APP_DIR" || exit 1
+      exec env \
+        HOME="$HOME" \
+        PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin" \
+        HF_HOME="$STATE_DIR/model-cache/huggingface" \
+        AGENT_VOICE_HOME="$STATE_DIR" \
+        AGENT_VOICE_TTS_MAX_TOKENS="${AGENT_VOICE_TTS_MAX_TOKENS:-1200}" \
+        "$PYTHON" -m uvicorn agent_voice.server:app \
+          --host 127.0.0.1 \
+          --port 8880 \
+          --timeout-graceful-shutdown 2
+    ) &
+    CHILD_PID="$!"
+    wait "$CHILD_PID"
+    exit_code="$?"
+    CHILD_PID=""
+    say "$(date -u '+%Y-%m-%dT%H:%M:%SZ') voice server exited with status $exit_code; restarting in 2 seconds"
+    sleep 2
+  done
+}
+
+start_supervisor() {
+  local pid=""
+
+  mkdir -p "$RUN_DIR" "$LOG_DIR"
+  if server_is_healthy; then
+    if pid="$(read_supervisor_pid 2>/dev/null)" && is_supervisor_pid "$pid"; then
+      say "agent-voice server is already healthy at $HEALTH_URL (supervisor PID $pid)"
+      return 0
+    fi
+    printf 'agent-voice-session: a healthy voice server is already using port 8880 but is not owned by this supervisor\n' >&2
+    return 1
+  fi
+
+  if ! mkdir "$START_LOCK" 2>/dev/null; then
+    for _ in {1..10}; do
+      server_is_healthy && return 0
+      sleep 0.5
+    done
+    printf 'agent-voice-session: another start attempt did not make the server healthy\n' >&2
+    return 1
+  fi
+  trap 'rmdir "$START_LOCK" 2>/dev/null || true' EXIT INT TERM HUP
+
+  if pid="$(read_supervisor_pid 2>/dev/null)" && is_supervisor_pid "$pid"; then
+    say "agent-voice session supervisor is already running (PID $pid)"
+  else
+    rm -f -- "$PID_FILE"
+    rmdir "$SUPERVISOR_LOCK" 2>/dev/null || true
+    nohup "$SELF" run \
+      >>"$LOG_DIR/session-server.log" \
+      2>>"$LOG_DIR/session-server.err.log" \
+      </dev/null &
+    say "started agent-voice session supervisor (PID $!)"
+  fi
+
+  for _ in {1..60}; do
+    if server_is_healthy; then
+      say "agent-voice server is healthy at $HEALTH_URL"
+      return 0
+    fi
+    sleep 0.5
+  done
+  printf 'agent-voice-session: server did not become healthy; see %s\n' "$LOG_DIR/session-server.err.log" >&2
+  stop_supervisor >/dev/null 2>&1 || true
+  return 1
+}
+
+stop_supervisor() {
+  local pid=""
+
+  if ! pid="$(read_supervisor_pid 2>/dev/null)" || ! is_supervisor_pid "$pid"; then
+    rm -f -- "$PID_FILE"
+    rmdir "$SUPERVISOR_LOCK" 2>/dev/null || true
+    say "agent-voice session supervisor is not running"
+    return 0
+  fi
+
+  kill "$pid"
+  for _ in {1..40}; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      rm -f -- "$PID_FILE"
+      rmdir "$SUPERVISOR_LOCK" 2>/dev/null || true
+      say "stopped agent-voice session supervisor"
+      return 0
+    fi
+    sleep 0.25
+  done
+  printf 'agent-voice-session: supervisor PID %s did not stop\n' "$pid" >&2
+  return 1
+}
+
+show_status() {
+  local pid=""
+  if pid="$(read_supervisor_pid 2>/dev/null)" && is_supervisor_pid "$pid"; then
+    say "session supervisor: running (PID $pid)"
+  else
+    say "session supervisor: stopped"
+  fi
+  if server_is_healthy; then
+    say "voice server: healthy ($HEALTH_URL)"
+  else
+    say "voice server: unavailable ($HEALTH_URL)"
+    return 1
+  fi
+}
+
+follow_logs() {
+  mkdir -p "$LOG_DIR"
+  touch "$LOG_DIR/session-server.log" "$LOG_DIR/session-server.err.log"
+  tail -n 80 -F "$LOG_DIR/session-server.log" "$LOG_DIR/session-server.err.log"
+}
+
+case "${1:-}" in
+  start)
+    start_supervisor
+    ;;
+  stop)
+    stop_supervisor
+    ;;
+  restart)
+    stop_supervisor
+    start_supervisor
+    ;;
+  status)
+    show_status
+    ;;
+  logs)
+    follow_logs
+    ;;
+  run)
+    run_supervisor
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

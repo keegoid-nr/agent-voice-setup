@@ -2,7 +2,8 @@
 
 One-command setup for local agent voice on macOS Apple Silicon:
 
-- `agent-voice` on `127.0.0.1:8880` as a login LaunchAgent.
+- `agent-voice` on `127.0.0.1:8880`, managed by launchd, a Claude-started
+  session supervisor, or a foreground terminal.
 - Qwen3-TTS VoiceDesign through MLX-Audio with the `questline_deadpan` voice.
 - Claude Code progress cues timed like Codex: start, important boundary, and
   closing handoff.
@@ -33,6 +34,28 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+On a managed Mac where `launchctl bootstrap` is unavailable:
+
+```bash
+./setup.sh --service-mode session
+```
+
+Session mode adds an asynchronous Claude Code `SessionStart` hook. Opening or
+resuming Claude starts a detached supervisor, and the supervisor restarts the
+voice server if it exits or the TTS watchdog terminates a wedged process. It
+does not require administrator access or launchd. After a reboot, voice becomes
+available when Claude Code starts.
+
+If background processes are also restricted, use foreground mode:
+
+```bash
+./setup.sh --service-mode foreground
+~/.local/bin/agent-voice-session run
+```
+
+Keep that terminal open while using voice. Setup temporarily starts the same
+supervisor for its real synthesis test, then stops it.
+
 The first run downloads several gigabytes and can take a while. At the end you
 should hear:
 
@@ -44,6 +67,8 @@ Useful options:
 ```bash
 ./setup.sh --dry-run
 ./setup.sh --no-play
+./setup.sh --service-mode session
+./setup.sh --service-mode foreground
 ```
 
 `--no-play` still synthesizes and validates a real WAV; it only suppresses
@@ -56,9 +81,10 @@ speaker playback.
 | `~/.agent-voice` | App, pinned source, logs, model cache, and backups |
 | `~/.local/bin/agent-speak` | Best-effort helper used by agents |
 | `~/.local/bin/agent-voice-summary` | Strict synthesis/playback helper |
+| `~/.local/bin/agent-voice-session` | Non-launchd supervisor controls |
 | `http://127.0.0.1:8880` | Local agent-voice server |
 | `~/.claude/CLAUDE.md` | Managed voice timing instructions |
-| `~/.claude/settings.json` | Narrow permission for `agent-speak` |
+| `~/.claude/settings.json` | `agent-speak` permission and optional session hook |
 
 Existing Claude files are preserved outside a marked managed block. Before
 editing them, setup writes copies under `~/.agent-voice/backups/setup-*`.
@@ -80,12 +106,20 @@ to that checkout's installer. The installed server is configured as follows:
    installed with `uv`.
 2. Command shims are written to `~/.local/bin` for `agent-voice`,
    `agent-speak`, and `agent-voice-summary`.
-3. A macOS LaunchAgent named `com.keegoid.agent-voice` starts Uvicorn with
-   `agent_voice.server:app`, bound only to `127.0.0.1:8880`.
-4. The LaunchAgent sets `HF_HOME` to
+3. Uvicorn starts `agent_voice.server:app`, bound only to `127.0.0.1:8880`.
+   In the default `launchd` mode, a LaunchAgent named
+   `com.keegoid.agent-voice` owns that process. In `session` and `foreground`
+   modes, setup applies the tracked `patches/agent-voice-no-service.patch` to a
+   temporary copy of the verified source so the upstream installer does not
+   write or bootstrap a LaunchAgent. The verified stored source remains
+   unchanged.
+4. Every lifecycle mode sets `HF_HOME` to
    `~/.agent-voice/model-cache/huggingface`, keeping model data within the
-   managed state directory. It runs at login, restarts if it exits, and writes
-   logs under `~/.agent-voice/logs`.
+   managed state directory, and writes logs under `~/.agent-voice/logs`.
+   Launchd starts at login. The session supervisor starts from Claude's
+   asynchronous `SessionStart` hook. Foreground mode starts only when
+   `agent-voice-session run` is active. Both supervisors restart the server if
+   it exits.
 5. Setup downloads the pinned Qwen3-TTS snapshot into that cache, verifies its
    content-addressed blobs, and confirms the health response reports the
    expected model and `questline_deadpan` voice.
@@ -105,7 +139,15 @@ curl -fsS http://127.0.0.1:8880/v1/health | jq .
 ~/.local/bin/agent-voice mute
 ~/.local/bin/agent-voice unmute
 ~/.local/bin/agent-speak "Claude Code here. This is a manual voice test."
+~/.local/bin/agent-voice-session status
+~/.local/bin/agent-voice-session restart
+~/.local/bin/agent-voice-session logs
 ```
+
+The `agent-voice-session` commands apply to `session` and `foreground` modes.
+Rerunning setup with a different service mode stops the managed session
+supervisor, unloads a prior voice LaunchAgent when accessible, and removes only
+the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 
 The setup pins:
 
