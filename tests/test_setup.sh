@@ -6,10 +6,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SETUP="$REPO_ROOT/setup.sh"
 SESSION_HELPER="$REPO_ROOT/scripts/agent-voice-session"
 NO_SERVICE_PATCH="$REPO_ROOT/patches/agent-voice-no-service.patch"
+AGENT_VOICE_OVERLAY="$REPO_ROOT/overlays"
 
 bash -n "$SETUP" "$SESSION_HELPER"
 "$SETUP" --help >/dev/null
 git apply --stat "$NO_SERVICE_PATCH" >/dev/null
+grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
+  "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT
@@ -48,7 +51,7 @@ second_settings_hash="$(shasum -a 256 "$CLAUDE_SETTINGS" | awk '{print $1}')"
 [[ "$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
 [[ "$(grep -Fxc "$CLAUDE_BLOCK_END" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
 grep -Fq 'existing instructions' "$CLAUDE_INSTRUCTIONS"
-grep -Fq 'questline_deadpan' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
 
 rule="Bash($AGENT_SPEAK:*)"
