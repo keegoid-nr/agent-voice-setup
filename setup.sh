@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${AGENT_VOICE_HOME:-$HOME/.agent-voice}"
 SOURCE_DIR="$STATE_DIR/sources/${AGENT_VOICE_COMMIT:0:12}"
 NO_SERVICE_PATCH="$SCRIPT_DIR/patches/agent-voice-no-service.patch"
+AGENT_VOICE_OVERLAY="$SCRIPT_DIR/overlays"
 SESSION_HELPER_SOURCE="$SCRIPT_DIR/scripts/agent-voice-session"
 BACKUP_ID="setup-$(date '+%Y%m%d%H%M%S')-$$"
 BACKUP_DIR="$STATE_DIR/backups/$BACKUP_ID"
@@ -236,17 +237,36 @@ prepare_service_transition() {
   esac
 }
 
-prepare_no_service_source() {
-  local patched_source="$TEMP_ROOT/agent-voice-no-service"
+prepare_install_source() {
+  local patched_source="$TEMP_ROOT/agent-voice-install"
   local source_archive="$TEMP_ROOT/agent-voice-source.tar"
+  local relative rendered original_mode
 
+  [[ -f "$AGENT_VOICE_OVERLAY/agent_voice/voices.py" ]] ||
+    die "missing agent-voice overlay: $AGENT_VOICE_OVERLAY"
   [[ -f "$NO_SERVICE_PATCH" ]] || die "missing no-service patch: $NO_SERVICE_PATCH"
   git -C "$SOURCE_DIR" archive --format=tar HEAD -o "$source_archive"
   mkdir -p "$patched_source"
   tar -xf "$source_archive" -C "$patched_source"
-  git -C "$patched_source" apply --unidiff-zero --check "$NO_SERVICE_PATCH" ||
-    die "the no-service patch no longer matches the pinned agent-voice installer"
-  git -C "$patched_source" apply --unidiff-zero "$NO_SERVICE_PATCH"
+  cp -R "$AGENT_VOICE_OVERLAY/." "$patched_source/"
+  for relative in \
+    agent_voice/hermes_config.py \
+    agent_voice/server.py \
+    scripts/agent-speak \
+    scripts/agent-voice-summary
+  do
+    original_mode="$(stat -f '%Lp' "$patched_source/$relative")"
+    rendered="$(mktemp "$TEMP_ROOT/voice-default.XXXXXX")"
+    sed 's/questline_deadpan/cool_street_deadpan/g' \
+      "$patched_source/$relative" >"$rendered"
+    chmod "$original_mode" "$rendered"
+    mv "$rendered" "$patched_source/$relative"
+  done
+  if [[ "$SERVICE_MODE" != "launchd" ]]; then
+    git -C "$patched_source" apply --unidiff-zero --check "$NO_SERVICE_PATCH" ||
+      die "the no-service patch no longer matches the pinned agent-voice installer"
+    git -C "$patched_source" apply --unidiff-zero "$NO_SERVICE_PATCH"
+  fi
   printf '%s\n' "$patched_source"
 }
 
@@ -254,8 +274,9 @@ install_agent_voice() {
   local install_source="$SOURCE_DIR"
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
+    would apply-voice-overlay "$AGENT_VOICE_OVERLAY"
     if [[ "$SERVICE_MODE" == "launchd" ]]; then
-      would "$SOURCE_DIR/install.sh" --source-dir "$SOURCE_DIR" --no-codex-config
+      would patched-agent-voice-install --source-dir verified-source --no-codex-config
     else
       would apply-no-service-patch "$NO_SERVICE_PATCH"
       would patched-agent-voice-install --source-dir verified-source --no-codex-config --no-service
@@ -264,9 +285,7 @@ install_agent_voice() {
   fi
 
   [[ -x "$SOURCE_DIR/install.sh" ]] || die "verified source is missing executable install.sh"
-  if [[ "$SERVICE_MODE" != "launchd" ]]; then
-    install_source="$(prepare_no_service_source)"
-  fi
+  install_source="$(prepare_install_source)"
   if [[ "$SERVICE_MODE" == "launchd" ]]; then
     "$install_source/install.sh" --source-dir "$install_source" --no-codex-config
   else
@@ -436,7 +455,7 @@ write_claude_instructions() {
 ## Local voice progress protocol
 
 Use \`$helper\` for best-effort spoken progress cues through the local
-agent-voice server and the \`questline_deadpan\` Qwen3-TTS voice. Voice is
+agent-voice server and the \`cool_street_deadpan\` Qwen3-TTS voice. Voice is
 operator telemetry, never the task: if speech is offline, continue working.
 
 Every spoken message must begin with \`$speaker\` so the speaker is clear away
@@ -590,7 +609,7 @@ run_voice_test() {
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     would wait-for-health "$VOICE_SERVER_URL/v1/health"
-    would "$AGENT_VOICE_SUMMARY" --voice questline_deadpan --output setup-test.wav \
+    would "$AGENT_VOICE_SUMMARY" --voice cool_street_deadpan --output setup-test.wav \
       "Agent voice is installed. Qwen three T T S is running locally."
     would validate-wav setup-test.wav
     return 0
@@ -600,7 +619,7 @@ run_voice_test() {
     die "agent-voice did not become reachable at $VOICE_SERVER_URL"
   health="$(curl -fsS --max-time 3 "$VOICE_SERVER_URL/v1/health")"
   jq -e --arg model "$QWEN_MODEL_ID" \
-    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | index("questline_deadpan") != null)' \
+    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | index("cool_street_deadpan") != null)' \
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 
@@ -610,7 +629,7 @@ run_voice_test() {
   fi
   say "Synthesizing a real Qwen3-TTS test clip"
   "$AGENT_VOICE_SUMMARY" \
-    --voice questline_deadpan \
+    --voice cool_street_deadpan \
     --output "$wav" \
     "${play_args[@]}" \
     "Agent voice is installed. Qwen three T T S is running locally, and Claude Code is ready to speak progress summaries."

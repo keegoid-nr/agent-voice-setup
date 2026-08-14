@@ -4,7 +4,7 @@ One-command setup for local agent voice on macOS Apple Silicon:
 
 - `agent-voice` on `127.0.0.1:8880`, managed by launchd, a Claude-started
   session supervisor, or a foreground terminal.
-- Qwen3-TTS VoiceDesign through MLX-Audio with the `questline_deadpan` voice.
+- Qwen3-TTS VoiceDesign through MLX-Audio with the `cool_street_deadpan` voice.
 - Claude Code progress cues timed like Codex: start, important boundary, and
   closing handoff.
 - A final audible synthesis test that loads Qwen and validates the generated
@@ -98,8 +98,9 @@ AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh
 
 ## Server configuration
 
-`setup.sh` verifies a pinned agent-voice checkout and delegates runtime setup
-to that checkout's installer. The installed server is configured as follows:
+`setup.sh` verifies a pinned agent-voice checkout, applies the tracked
+`cool_street_deadpan` catalog/default overlay, and delegates runtime setup to
+that temporary verified source. The installed server is configured as follows:
 
 1. Application files and an isolated Python environment are installed under
    `~/.agent-voice/app`. MLX-Audio and the rest of the locked Python runtime are
@@ -122,7 +123,7 @@ to that checkout's installer. The installed server is configured as follows:
    it exits.
 5. Setup downloads the pinned Qwen3-TTS snapshot into that cache, verifies its
    content-addressed blobs, and confirms the health response reports the
-   expected model and `questline_deadpan` voice.
+   expected model and `cool_street_deadpan` voice.
 6. The final test calls the real speech endpoint, optionally plays the result,
    and validates that the response is a plausible WAV rather than accepting a
    health response as proof of synthesis.
@@ -152,7 +153,8 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 The setup pins:
 
 - agent-voice commit `a9a80699323c4376a745f717772130efdf1f3c06`,
-  including the repaired Qwen sampler.
+  including the repaired Qwen sampler, plus the tracked cool-street voice
+  overlay in `overlays/agent_voice/voices.py`.
 - Qwen model revision `7d3824abff87e49756bb0f83fb5411de75d160c4`.
 
 The Hugging Face cache is content-addressed. Setup recalculates every snapshot
