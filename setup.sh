@@ -76,6 +76,21 @@ run() {
   fi
 }
 
+file_mode() {
+  local target="$1"
+  local mode=""
+
+  if [[ -x /usr/bin/stat ]]; then
+    mode="$(/usr/bin/stat -f '%Lp' "$target" 2>/dev/null)" || mode=""
+  fi
+  if [[ -z "$mode" ]]; then
+    mode="$(stat -c '%a' "$target" 2>/dev/null)" || mode=""
+  fi
+  [[ "$mode" =~ ^[0-7]{3,4}$ ]] ||
+    die "could not determine file mode for $target"
+  printf '%s\n' "$mode"
+}
+
 cleanup() {
   if [[ "$FOREGROUND_SERVICE_STARTED" -eq 1 && -x "$AGENT_VOICE_SESSION" ]]; then
     "$AGENT_VOICE_SESSION" stop >/dev/null 2>&1 || true
@@ -255,11 +270,11 @@ prepare_install_source() {
     scripts/agent-speak \
     scripts/agent-voice-summary
   do
-    original_mode="$(stat -f '%Lp' "$patched_source/$relative")"
+    original_mode="$(file_mode "$patched_source/$relative")" || return 1
     rendered="$(mktemp "$TEMP_ROOT/voice-default.XXXXXX")"
     sed 's/questline_deadpan/cool_street_deadpan/g' \
       "$patched_source/$relative" >"$rendered"
-    chmod "$original_mode" "$rendered"
+    chmod "$original_mode" "$rendered" || return 1
     mv "$rendered" "$patched_source/$relative"
   done
   if [[ "$SERVICE_MODE" != "launchd" ]]; then
@@ -440,7 +455,7 @@ write_claude_instructions() {
   rendered="$(mktemp "$TEMP_ROOT/claude-instructions-rendered.XXXXXX")"
   original_mode="644"
   if [[ -f "$CLAUDE_INSTRUCTIONS" ]]; then
-    original_mode="$(stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")"
+    original_mode="$(file_mode "$CLAUDE_INSTRUCTIONS")" || return 1
     awk -v begin="$CLAUDE_BLOCK_BEGIN" -v end="$CLAUDE_BLOCK_END" '
       $0 == begin { managed = 1; next }
       $0 == end { managed = 0; next }
@@ -476,7 +491,7 @@ EOF
     printf '%s\n' "$CLAUDE_BLOCK_END"
   } >"$rendered"
   mv "$rendered" "$CLAUDE_INSTRUCTIONS"
-  chmod "$original_mode" "$CLAUDE_INSTRUCTIONS"
+  chmod "$original_mode" "$CLAUDE_INSTRUCTIONS" || return 1
 }
 
 configure_claude_permission() {
