@@ -18,6 +18,7 @@ test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT
 mkdir -p "$test_root/home/.claude" "$test_root/tmp" "$test_root/fake-bin"
 printf 'existing instructions\n' >"$test_root/home/.claude/CLAUDE.md"
+chmod 640 "$test_root/home/.claude/CLAUDE.md"
 printf '%s\n' '{"permissions":{"allow":["Read"]},"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"existing-session-hook"}]}]},"custom":true}' >"$test_root/home/.claude/settings.json"
 
 cat >"$test_root/fake-bin/curl" <<'FAKE_CURL'
@@ -26,7 +27,15 @@ cat >"$test_root/fake-bin/curl" <<'FAKE_CURL'
 FAKE_CURL
 chmod 755 "$test_root/fake-bin/curl"
 
+cat >"$test_root/fake-bin/stat" <<'FAKE_STAT'
+#!/usr/bin/env bash
+echo "PATH-shadowed stat must not replace macOS /usr/bin/stat" >&2
+exit 97
+FAKE_STAT
+chmod 755 "$test_root/fake-bin/stat"
+
 HOME="$test_root/home" TMPDIR="$test_root/tmp" SETUP_PATH="$SETUP" \
+  PATH="$test_root/fake-bin:$PATH" \
   FAKE_BIN="$test_root/fake-bin" bash <<'TEST'
 set -euo pipefail
 source "$SETUP_PATH"
@@ -53,6 +62,7 @@ second_settings_hash="$(shasum -a 256 "$CLAUDE_SETTINGS" | awk '{print $1}')"
 grep -Fq 'existing instructions' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
+[[ "$(/usr/bin/stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")" == "640" ]]
 
 rule="Bash($AGENT_SPEAK:*)"
 session_command="\"$AGENT_VOICE_SESSION\" start"
