@@ -18,6 +18,7 @@ from typing import Any, Callable, Iterable
 
 PUBLIC_VOICES = {
     "chesapeake_balanced",
+    "chesapeake_balanced_female",
     "cool_street_deadpan",
 }
 

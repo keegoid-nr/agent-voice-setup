@@ -5,7 +5,8 @@ One-command setup for local agent voice on macOS Apple Silicon:
 - `agent-voice` on `127.0.0.1:8880`, managed by launchd, a Claude-started
   session supervisor, or a foreground terminal.
 - Qwen3-TTS VoiceDesign through MLX-Audio with `chesapeake_balanced` as the
-  general default and `cool_street_deadpan` retained for Fig cues.
+  general default, `chesapeake_balanced_female` as its contralto counterpart,
+  and `cool_street_deadpan` retained for compatibility.
 - Claude Code progress cues timed like Codex: start, important boundary, and
   closing handoff.
 - A final audible synthesis test that loads Qwen and validates the generated
@@ -100,7 +101,8 @@ AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh
 ## Server configuration
 
 `setup.sh` verifies a pinned agent-voice checkout, applies the tracked
-two-voice `chesapeake_balanced`/`cool_street_deadpan` catalog overlay, and
+three-voice `chesapeake_balanced`/`chesapeake_balanced_female`/
+`cool_street_deadpan` catalog overlay and conservative sampling patch, and
 delegates runtime setup to
 that temporary verified source. The installed server is configured as follows:
 
@@ -125,7 +127,7 @@ that temporary verified source. The installed server is configured as follows:
    it exits.
 5. Setup downloads the pinned Qwen3-TTS snapshot into that cache, verifies its
    content-addressed blobs, and confirms the health response reports the
-   expected model and exactly the two supported voices.
+   expected model and exactly the three supported voices.
 6. The final test calls the real speech endpoint, optionally plays the result,
    and validates that the response is a plausible WAV rather than accepting a
    health response as proof of synthesis.
@@ -155,9 +157,10 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 The setup pins:
 
 - agent-voice commit `1dcb3ad0f940b6d4fc3831dedf366335e6fc9dd4`,
-  including the repaired Qwen sampler, plus the tracked two-voice
-  `chesapeake_balanced`/`cool_street_deadpan` overlay in
-  `overlays/agent_voice/voices.py`.
+  including the repaired Qwen sampler, plus the tracked three-voice
+  `chesapeake_balanced`/`chesapeake_balanced_female`/`cool_street_deadpan`
+  overlay in `overlays/agent_voice/voices.py` and conservative sampling patch
+  in `patches/agent-voice-stable-sampling.patch`.
 - Qwen model revision `7d3824abff87e49756bb0f83fb5411de75d160c4`.
 
 The Hugging Face cache is content-addressed. Setup recalculates every snapshot

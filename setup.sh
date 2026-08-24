@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${AGENT_VOICE_HOME:-$HOME/.agent-voice}"
 SOURCE_DIR="$STATE_DIR/sources/${AGENT_VOICE_COMMIT:0:12}"
 NO_SERVICE_PATCH="$SCRIPT_DIR/patches/agent-voice-no-service.patch"
+STABLE_SAMPLING_PATCH="$SCRIPT_DIR/patches/agent-voice-stable-sampling.patch"
 AGENT_VOICE_OVERLAY="$SCRIPT_DIR/overlays"
 SESSION_HELPER_SOURCE="$SCRIPT_DIR/scripts/agent-voice-session"
 BACKUP_ID="setup-$(date '+%Y%m%d%H%M%S')-$$"
@@ -260,6 +261,7 @@ prepare_install_source() {
   [[ -f "$AGENT_VOICE_OVERLAY/agent_voice/voices.py" ]] ||
     die "missing agent-voice overlay: $AGENT_VOICE_OVERLAY"
   [[ -f "$NO_SERVICE_PATCH" ]] || die "missing no-service patch: $NO_SERVICE_PATCH"
+  [[ -f "$STABLE_SAMPLING_PATCH" ]] || die "missing stable-sampling patch: $STABLE_SAMPLING_PATCH"
   git -C "$SOURCE_DIR" archive --format=tar HEAD -o "$source_archive"
   mkdir -p "$patched_source"
   tar -xf "$source_archive" -C "$patched_source"
@@ -277,6 +279,9 @@ prepare_install_source() {
     chmod "$original_mode" "$rendered" || return 1
     mv "$rendered" "$patched_source/$relative"
   done
+  git -C "$patched_source" apply --check "$STABLE_SAMPLING_PATCH" ||
+    die "the stable-sampling patch no longer matches the pinned agent-voice source"
+  git -C "$patched_source" apply "$STABLE_SAMPLING_PATCH"
   if [[ "$SERVICE_MODE" != "launchd" ]]; then
     git -C "$patched_source" apply --unidiff-zero --check "$NO_SERVICE_PATCH" ||
       die "the no-service patch no longer matches the pinned agent-voice installer"
@@ -290,6 +295,7 @@ install_agent_voice() {
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     would apply-voice-overlay "$AGENT_VOICE_OVERLAY"
+    would apply-stable-sampling-patch "$STABLE_SAMPLING_PATCH"
     if [[ "$SERVICE_MODE" == "launchd" ]]; then
       would patched-agent-voice-install --source-dir verified-source --no-codex-config
     else
@@ -470,7 +476,7 @@ write_claude_instructions() {
 ## Local voice progress protocol
 
 Use \`$helper\` for best-effort spoken progress cues through the local
-agent-voice server and the \`cool_street_deadpan\` Qwen3-TTS voice. Voice is
+agent-voice server and the \`chesapeake_balanced\` Qwen3-TTS voice. Voice is
 operator telemetry, never the task: if speech is offline, continue working.
 
 Every spoken message must begin with \`$speaker\` so the speaker is clear away
@@ -634,7 +640,7 @@ run_voice_test() {
     die "agent-voice did not become reachable at $VOICE_SERVER_URL"
   health="$(curl -fsS --max-time 3 "$VOICE_SERVER_URL/v1/health")"
   jq -e --arg model "$QWEN_MODEL_ID" \
-    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "cool_street_deadpan"])' \
+    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "chesapeake_balanced_female", "cool_street_deadpan"])' \
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 

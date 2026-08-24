@@ -6,16 +6,21 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SETUP="$REPO_ROOT/setup.sh"
 SESSION_HELPER="$REPO_ROOT/scripts/agent-voice-session"
 NO_SERVICE_PATCH="$REPO_ROOT/patches/agent-voice-no-service.patch"
+STABLE_SAMPLING_PATCH="$REPO_ROOT/patches/agent-voice-stable-sampling.patch"
 AGENT_VOICE_OVERLAY="$REPO_ROOT/overlays"
 
 bash -n "$SETUP" "$SESSION_HELPER"
 "$SETUP" --help >/dev/null
 git apply --stat "$NO_SERVICE_PATCH" >/dev/null
+git apply --stat "$STABLE_SAMPLING_PATCH" >/dev/null
 grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
-CHESAPEAKE_DESIGN="A warm British baritone, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
+grep -Fq '"chesapeake_balanced_female": _CHESAPEAKE_BALANCED_FEMALE' \
+  "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
+CHESAPEAKE_DESIGN="A warm adult male British baritone, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
+CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
 PYTHONDONTWRITEBYTECODE=1 \
 PYTHONPATH="$AGENT_VOICE_OVERLAY" python3 -c '
 import os
@@ -23,8 +28,11 @@ import os
 from agent_voice.voices import VOICE_DESIGNS
 
 assert VOICE_DESIGNS["chesapeake_balanced"] == os.environ["CHESAPEAKE_DESIGN"]
+assert VOICE_DESIGNS["chesapeake_balanced_female"] == os.environ["CHESAPEAKE_FEMALE_DESIGN"]
 '
-[[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 2 ]]
+[[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 3 ]]
+grep -Fq 'AGENT_VOICE_TTS_TEMPERATURE") or "0.7"' "$STABLE_SAMPLING_PATCH"
+grep -Fq 'AGENT_VOICE_TTS_RETRY_TEMPERATURE") or "0.6"' "$STABLE_SAMPLING_PATCH"
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT
@@ -72,7 +80,8 @@ second_settings_hash="$(shasum -a 256 "$CLAUDE_SETTINGS" | awk '{print $1}')"
 [[ "$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
 [[ "$(grep -Fxc "$CLAUDE_BLOCK_END" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
 grep -Fq 'existing instructions' "$CLAUDE_INSTRUCTIONS"
-grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'chesapeake_balanced' "$CLAUDE_INSTRUCTIONS"
+! grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
 [[ "$(/usr/bin/stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")" == "640" ]]
 
