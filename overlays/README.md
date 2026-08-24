@@ -170,7 +170,7 @@ PAI-compatible desktop notification and playback:
 ```bash
 curl -fsS http://127.0.0.1:8880/notify \
   -H 'Content-Type: application/json' \
-  -d '{"title":"PAI Notification","message":"The agent finished the task.","voice_id":"cool_street_deadpan","voice_enabled":true}'
+  -d '{"title":"PAI Notification","message":"The agent finished the task.","voice_id":"chesapeake_balanced","voice_enabled":true}'
 ```
 
 Compatibility aliases are also available at `/notify/personality` and `/pai`.
@@ -217,7 +217,7 @@ Speech:
 ```bash
 curl -fsS http://127.0.0.1:8880/v1/audio/speech \
   -H 'Content-Type: application/json' \
-  -d '{"model":"qwen3-tts","input":"The agent finished the task.","voice":"cool_street_deadpan","response_format":"wav","max_tokens":1200}' \
+  -d '{"model":"qwen3-tts","input":"The agent finished the task.","voice":"chesapeake_balanced","response_format":"wav","max_tokens":1200}' \
   -o speech.wav
 ```
 
@@ -258,23 +258,8 @@ compatibility but are not forwarded to the current MLX Whisper runtime.
 
 Public voices:
 
-- `anime_genki`
-- `anime_villain`
-- `cool_figment_rain`
+- `chesapeake_balanced` (default)
 - `cool_street_deadpan`
-- `cyberpunk_cool`
-- `cyberpunk_cool_male`
-- `male_boardroom_baritone`
-- `male_market_floor_tenor`
-- `male_editorial_bass`
-- `male_mission_control_commander`
-- `peng_mythic`
-- `questline_deadpan`
-- `anime_sultry`
-- `anime_energetic`
-- `anime_whisper`
-- `warm_wisdom`
-- `sultry_commanding`
 
 ## Hermes Agent
 
@@ -302,7 +287,7 @@ tts:
   provider: openai
   openai:
     model: qwen3-tts
-    voice: cool_street_deadpan
+    voice: chesapeake_balanced
     base_url: http://127.0.0.1:8880/v1
 
 voice:

@@ -4,7 +4,8 @@ One-command setup for local agent voice on macOS Apple Silicon:
 
 - `agent-voice` on `127.0.0.1:8880`, managed by launchd, a Claude-started
   session supervisor, or a foreground terminal.
-- Qwen3-TTS VoiceDesign through MLX-Audio with the `cool_street_deadpan` voice.
+- Qwen3-TTS VoiceDesign through MLX-Audio with `chesapeake_balanced` as the
+  general default and `cool_street_deadpan` retained for Fig cues.
 - Claude Code progress cues timed like Codex: start, important boundary, and
   closing handoff.
 - A final audible synthesis test that loads Qwen and validates the generated
@@ -99,7 +100,8 @@ AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh
 ## Server configuration
 
 `setup.sh` verifies a pinned agent-voice checkout, applies the tracked
-`cool_street_deadpan` catalog/default overlay, and delegates runtime setup to
+two-voice `chesapeake_balanced`/`cool_street_deadpan` catalog overlay, and
+delegates runtime setup to
 that temporary verified source. The installed server is configured as follows:
 
 1. Application files and an isolated Python environment are installed under
@@ -123,7 +125,7 @@ that temporary verified source. The installed server is configured as follows:
    it exits.
 5. Setup downloads the pinned Qwen3-TTS snapshot into that cache, verifies its
    content-addressed blobs, and confirms the health response reports the
-   expected model and `cool_street_deadpan` voice.
+   expected model and exactly the two supported voices.
 6. The final test calls the real speech endpoint, optionally plays the result,
    and validates that the response is a plausible WAV rather than accepting a
    health response as proof of synthesis.

@@ -17,23 +17,8 @@ from typing import Any, Callable, Iterable
 
 
 PUBLIC_VOICES = {
-    "anime_genki",
-    "anime_villain",
-    "cool_figment_rain",
+    "chesapeake_balanced",
     "cool_street_deadpan",
-    "cyberpunk_cool",
-    "cyberpunk_cool_male",
-    "peng_mythic",
-    "questline_deadpan",
-    "male_boardroom_baritone",
-    "male_market_floor_tenor",
-    "male_editorial_bass",
-    "male_mission_control_commander",
-    "anime_sultry",
-    "anime_energetic",
-    "anime_whisper",
-    "warm_wisdom",
-    "sultry_commanding",
 }
 
 

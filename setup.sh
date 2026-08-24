@@ -272,7 +272,7 @@ prepare_install_source() {
   do
     original_mode="$(file_mode "$patched_source/$relative")" || return 1
     rendered="$(mktemp "$TEMP_ROOT/voice-default.XXXXXX")"
-    sed 's/questline_deadpan/cool_street_deadpan/g' \
+    sed 's/questline_deadpan/chesapeake_balanced/g' \
       "$patched_source/$relative" >"$rendered"
     chmod "$original_mode" "$rendered" || return 1
     mv "$rendered" "$patched_source/$relative"
@@ -624,7 +624,7 @@ run_voice_test() {
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     would wait-for-health "$VOICE_SERVER_URL/v1/health"
-    would "$AGENT_VOICE_SUMMARY" --voice cool_street_deadpan --output setup-test.wav \
+    would "$AGENT_VOICE_SUMMARY" --voice chesapeake_balanced --output setup-test.wav \
       "Agent voice is installed. Qwen three T T S is running locally."
     would validate-wav setup-test.wav
     return 0
@@ -634,7 +634,7 @@ run_voice_test() {
     die "agent-voice did not become reachable at $VOICE_SERVER_URL"
   health="$(curl -fsS --max-time 3 "$VOICE_SERVER_URL/v1/health")"
   jq -e --arg model "$QWEN_MODEL_ID" \
-    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | index("cool_street_deadpan") != null)' \
+    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "cool_street_deadpan"])' \
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 
@@ -644,7 +644,7 @@ run_voice_test() {
   fi
   say "Synthesizing a real Qwen3-TTS test clip"
   "$AGENT_VOICE_SUMMARY" \
-    --voice cool_street_deadpan \
+    --voice chesapeake_balanced \
     --output "$wav" \
     "${play_args[@]}" \
     "Agent voice is installed. Qwen three T T S is running locally, and Claude Code is ready to speak progress summaries."

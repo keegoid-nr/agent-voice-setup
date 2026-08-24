@@ -13,6 +13,9 @@ bash -n "$SETUP" "$SESSION_HELPER"
 git apply --stat "$NO_SERVICE_PATCH" >/dev/null
 grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
+grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
+  "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
+[[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 2 ]]
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT
