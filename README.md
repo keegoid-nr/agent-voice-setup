@@ -154,9 +154,10 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 
 The setup pins:
 
-- agent-voice commit `a9a80699323c4376a745f717772130efdf1f3c06`,
-  including the repaired Qwen sampler, plus the tracked cool-street voice
-  overlay in `overlays/agent_voice/voices.py`.
+- agent-voice commit `1dcb3ad0f940b6d4fc3831dedf366335e6fc9dd4`,
+  including the repaired Qwen sampler, plus the tracked two-voice
+  `chesapeake_balanced`/`cool_street_deadpan` overlay in
+  `overlays/agent_voice/voices.py`.
 - Qwen model revision `7d3824abff87e49756bb0f83fb5411de75d160c4`.
 
 The Hugging Face cache is content-addressed. Setup recalculates every snapshot
