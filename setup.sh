@@ -9,6 +9,7 @@ readonly AGENT_VOICE_TREE_SHA256="284c49712eacdf4ad181f24d998a44ea51e2f65cd0dfa0
 readonly QWEN_MODEL_ID="mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 readonly QWEN_MODEL_REVISION="7d3824abff87e49756bb0f83fb5411de75d160c4"
 readonly VOICE_SERVER_URL="http://127.0.0.1:8880"
+readonly DEFAULT_VOICE="chesapeake_balanced"
 readonly CLAUDE_BLOCK_BEGIN="<!-- agent-voice-setup:claude-begin -->"
 readonly CLAUDE_BLOCK_END="<!-- agent-voice-setup:claude-end -->"
 
@@ -33,6 +34,7 @@ LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
 DRY_RUN=0
 PLAY_TEST=1
 SERVICE_MODE="launchd"
+SELECTED_VOICE="${AGENT_VOICE_SETUP_VOICE:-}"
 FOREGROUND_SERVICE_STARTED=0
 TEMP_ROOT=""
 
@@ -42,6 +44,8 @@ Usage: ./setup.sh [options]
 
 Options:
   --service-mode MODE  Server lifecycle: launchd (default), session, or foreground.
+  --voice NAME         Default voice: chesapeake_balanced,
+                       chesapeake_balanced_female, or cool_street_deadpan.
   --dry-run           Print the planned operations without changing the laptop.
   --no-play           Generate and validate the test WAV without playing it.
   -h, --help          Show this help.
@@ -108,6 +112,11 @@ parse_args() {
         SERVICE_MODE="$2"
         shift 2
         ;;
+      --voice)
+        [[ $# -ge 2 ]] || die "missing value for --voice"
+        SELECTED_VOICE="$2"
+        shift 2
+        ;;
       --dry-run)
         DRY_RUN=1
         shift
@@ -130,6 +139,41 @@ parse_args() {
     launchd|session|foreground) ;;
     *) die "invalid service mode: $SERVICE_MODE (expected launchd, session, or foreground)" ;;
   esac
+}
+
+set_selected_voice_from_choice() {
+  local choice="$1"
+
+  case "$choice" in
+    ""|1) SELECTED_VOICE="chesapeake_balanced" ;;
+    2) SELECTED_VOICE="chesapeake_balanced_female" ;;
+    3) SELECTED_VOICE="cool_street_deadpan" ;;
+    *) die "invalid voice selection: $choice (expected 1, 2, or 3)" ;;
+  esac
+}
+
+select_setup_voice() {
+  local choice=""
+
+  if [[ -z "$SELECTED_VOICE" ]]; then
+    if [[ -t 0 ]]; then
+      printf '%s\n' "Choose the default agent voice:"
+      printf '%s\n' "  1) Chesapeake Balanced — adult male British baritone (default)"
+      printf '%s\n' "  2) Chesapeake Balanced Female — adult female British contralto"
+      printf '%s\n' "  3) Cool Street Deadpan — dry, street-smart female voice"
+      printf '%s' "Selection [1]: "
+      IFS= read -r choice || choice=""
+      set_selected_voice_from_choice "$choice"
+    else
+      SELECTED_VOICE="$DEFAULT_VOICE"
+    fi
+  fi
+
+  case "$SELECTED_VOICE" in
+    chesapeake_balanced|chesapeake_balanced_female|cool_street_deadpan) ;;
+    *) die "invalid voice: $SELECTED_VOICE" ;;
+  esac
+  say "Selected voice: $SELECTED_VOICE"
 }
 
 require_platform() {
@@ -272,8 +316,10 @@ prepare_install_source() {
   do
     original_mode="$(file_mode "$patched_source/$relative")" || return 1
     rendered="$(mktemp "$TEMP_ROOT/voice-default.XXXXXX")"
-    sed 's/questline_deadpan/chesapeake_balanced/g' \
+    sed "s/$DEFAULT_VOICE/$SELECTED_VOICE/g" \
       "$patched_source/$relative" >"$rendered"
+    grep -Fq "$SELECTED_VOICE" "$rendered" ||
+      die "could not set selected voice in $relative"
     chmod "$original_mode" "$rendered" || return 1
     mv "$rendered" "$patched_source/$relative"
   done
@@ -470,7 +516,7 @@ write_claude_instructions() {
 ## Local voice progress protocol
 
 Use \`$helper\` for best-effort spoken progress cues through the local
-agent-voice server and the \`chesapeake_balanced\` Qwen3-TTS voice. Voice is
+agent-voice server and the \`$SELECTED_VOICE\` Qwen3-TTS voice. Voice is
 operator telemetry, never the task: if speech is offline, continue working.
 
 Every spoken message must begin with \`$speaker\` so the speaker is clear away
@@ -624,7 +670,7 @@ run_voice_test() {
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     would wait-for-health "$VOICE_SERVER_URL/v1/health"
-    would "$AGENT_VOICE_SUMMARY" --voice chesapeake_balanced --output setup-test.wav \
+    would "$AGENT_VOICE_SUMMARY" --voice "$SELECTED_VOICE" --output setup-test.wav \
       "Agent voice is installed. Qwen three T T S is running locally."
     would validate-wav setup-test.wav
     return 0
@@ -638,13 +684,29 @@ run_voice_test() {
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 
+  "$STATE_DIR/app/.venv/bin/python" - "$SELECTED_VOICE" <<'PY'
+import sys
+
+from agent_voice.hermes_config import DEFAULT_VOICE
+from agent_voice.server import RequestPayload
+
+selected = sys.argv[1]
+assert DEFAULT_VOICE == selected, (DEFAULT_VOICE, selected)
+assert RequestPayload(input="voice default check").voice == selected
+print(f"Verified installed default voice: {selected}")
+PY
+  grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$AGENT_VOICE_SUMMARY" ||
+    die "agent-voice-summary does not default to $SELECTED_VOICE"
+  grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$AGENT_SPEAK" ||
+    die "agent-speak does not default to $SELECTED_VOICE"
+
   wav="$TEMP_ROOT/agent-voice-setup-test.wav"
   if [[ "$PLAY_TEST" -ne 1 ]]; then
     play_args+=(--no-play)
   fi
   say "Synthesizing a real Qwen3-TTS test clip"
   "$AGENT_VOICE_SUMMARY" \
-    --voice chesapeake_balanced \
+    --voice "$SELECTED_VOICE" \
     --output "$wav" \
     "${play_args[@]}" \
     "Agent voice is installed. Qwen three T T S is running locally, and Claude Code is ready to speak progress summaries."
@@ -677,6 +739,7 @@ print_summary() {
   say "Local agent voice setup passed."
   say "Voice server: $VOICE_SERVER_URL"
   say "Model: $QWEN_MODEL_ID@$QWEN_MODEL_REVISION"
+  say "Default voice: $SELECTED_VOICE"
   say "Service mode: $SERVICE_MODE"
   case "$SERVICE_MODE" in
     launchd)
@@ -696,6 +759,7 @@ print_summary() {
 
 main() {
   parse_args "$@"
+  select_setup_voice
   require_platform
   trap cleanup EXIT
   if [[ "$DRY_RUN" -eq 1 ]]; then

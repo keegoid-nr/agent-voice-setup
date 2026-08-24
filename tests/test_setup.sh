@@ -9,7 +9,8 @@ NO_SERVICE_PATCH="$REPO_ROOT/patches/agent-voice-no-service.patch"
 AGENT_VOICE_OVERLAY="$REPO_ROOT/overlays"
 
 bash -n "$SETUP" "$SESSION_HELPER"
-"$SETUP" --help >/dev/null
+help_output="$("$SETUP" --help)"
+grep -Fq -- '--voice NAME' <<<"$help_output"
 git apply --stat "$NO_SERVICE_PATCH" >/dev/null
 grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
@@ -29,6 +30,44 @@ assert VOICE_DESIGNS["chesapeake_balanced"] == os.environ["CHESAPEAKE_DESIGN"]
 assert VOICE_DESIGNS["chesapeake_balanced_female"] == os.environ["CHESAPEAKE_FEMALE_DESIGN"]
 '
 [[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 3 ]]
+
+SETUP_PATH="$SETUP" bash <<'TEST'
+set -euo pipefail
+source "$SETUP_PATH"
+
+SELECTED_VOICE=""
+select_setup_voice >/dev/null
+[[ "$SELECTED_VOICE" == "chesapeake_balanced" ]]
+
+for choice_and_voice in \
+  ':chesapeake_balanced' \
+  '1:chesapeake_balanced' \
+  '2:chesapeake_balanced_female' \
+  '3:cool_street_deadpan'
+do
+  choice="${choice_and_voice%%:*}"
+  expected="${choice_and_voice#*:}"
+  SELECTED_VOICE=""
+  set_selected_voice_from_choice "$choice"
+  [[ "$SELECTED_VOICE" == "$expected" ]]
+done
+
+for voice in chesapeake_balanced chesapeake_balanced_female cool_street_deadpan; do
+  SELECTED_VOICE="$voice"
+  select_setup_voice >/dev/null
+  [[ "$SELECTED_VOICE" == "$voice" ]]
+done
+
+if (set_selected_voice_from_choice 4 >/dev/null 2>&1); then
+  echo "invalid menu choice unexpectedly accepted" >&2
+  exit 1
+fi
+
+if (SELECTED_VOICE="not_a_voice"; select_setup_voice >/dev/null 2>&1); then
+  echo "invalid voice unexpectedly accepted" >&2
+  exit 1
+fi
+TEST
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT
@@ -58,6 +97,7 @@ source "$SETUP_PATH"
 TEMP_ROOT="$(mktemp -d "$TMPDIR/functions.XXXXXX")"
 trap 'rm -rf -- "$TEMP_ROOT"' EXIT
 SERVICE_MODE="session"
+SELECTED_VOICE="chesapeake_balanced"
 
 write_claude_instructions
 configure_claude_permission
