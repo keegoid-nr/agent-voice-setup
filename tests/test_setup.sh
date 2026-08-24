@@ -99,6 +99,28 @@ trap 'rm -rf -- "$TEMP_ROOT"' EXIT
 SERVICE_MODE="session"
 SELECTED_VOICE="chesapeake_balanced"
 
+cli_fixture="$TEMP_ROOT/agent-voice"
+cat >"$cli_fixture" <<'CLI_FIXTURE'
+#!/usr/bin/env bash
+Commands:
+  status
+  configure external
+  restore
+  configure)
+    external-command
+    ;;
+  restore)
+    restore-command
+    ;;
+CLI_FIXTURE
+chmod 755 "$cli_fixture"
+strip_agent_voice_configure_command "$cli_fixture"
+grep -Fq '  status' "$cli_fixture"
+grep -Fq '  restore)' "$cli_fixture"
+! grep -Fq 'configure' "$cli_fixture"
+! grep -Fq 'external-command' "$cli_fixture"
+[[ "$(/usr/bin/stat -f '%Lp' "$cli_fixture")" == "755" ]]
+
 write_claude_instructions
 configure_claude_permission
 configure_claude_session_hook
@@ -151,11 +173,24 @@ cat >"$STATE_DIR/app/.venv/bin/python" <<'FAKE_VERIFY_PYTHON'
 set -euo pipefail
 [[ -d agent_voice ]]
 [[ "$1" == "-" ]]
-[[ "$2" == "chesapeake_balanced" ]]
-grep -Fq 'from agent_voice.hermes_config import DEFAULT_VOICE'
+[[ "$2" == "chesapeake_balanced_female" ]]
+payload="$(cat)"
+grep -Fq 'from agent_voice.server import RequestPayload, _notify_default_voice' <<<"$payload"
+grep -Fq 'assert _notify_default_voice() == selected' <<<"$payload"
 FAKE_VERIFY_PYTHON
 chmod 755 "$STATE_DIR/app/.venv/bin/python"
+SELECTED_VOICE="chesapeake_balanced_female"
 verify_installed_voice_default
+
+mkdir -p "$LOCAL_BIN"
+printf '%s\n' '#!/usr/bin/env bash' 'exec backing-helper "$@"' >"$AGENT_VOICE_SUMMARY"
+printf '%s\n' '#!/usr/bin/env bash' 'exec backing-helper "$@"' >"$AGENT_SPEAK"
+printf '%s\n' '#!/usr/bin/env bash' 'voice="${AGENT_VOICE_VOICE:-chesapeake_balanced_female}"' \
+  >"$AGENT_VOICE_SUMMARY_BIN"
+printf '%s\n' '#!/usr/bin/env bash' 'voice="${AGENT_VOICE_VOICE:-chesapeake_balanced_female}"' \
+  >"$AGENT_SPEAK_BIN"
+chmod 755 "$AGENT_VOICE_SUMMARY" "$AGENT_SPEAK" "$AGENT_VOICE_SUMMARY_BIN" "$AGENT_SPEAK_BIN"
+verify_installed_helper_defaults >/dev/null
 
 cp "$SESSION_HELPER_SOURCE" "$AGENT_VOICE_SESSION_BIN"
 chmod 755 "$AGENT_VOICE_SESSION_BIN"

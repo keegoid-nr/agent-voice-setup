@@ -118,9 +118,13 @@ AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh
 
 `setup.sh` verifies a pinned agent-voice checkout, applies the tracked
 three-voice `chesapeake_balanced`/`chesapeake_balanced_female`/
-`cool_street_deadpan` catalog overlay, and
-delegates runtime setup to
-that temporary verified source. The installed server is configured as follows:
+`cool_street_deadpan` catalog overlay, and delegates runtime setup to that
+temporary verified source. The installed server is configured as follows:
+
+The temporary source is assembled from a work-approved runtime allowlist. It
+contains only the local server modules, lifecycle and speech helpers, locked
+dependencies, voice catalog, and pronunciation configuration needed on the
+managed Mac; unrelated integration and development files are not installed.
 
 1. Application files and an isolated Python environment are installed under
    `~/.agent-voice/app`. MLX-Audio and the rest of the locked Python runtime are

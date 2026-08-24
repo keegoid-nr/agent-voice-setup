@@ -28,6 +28,8 @@ LOCAL_BIN="$HOME/.local/bin"
 AGENT_SPEAK="$LOCAL_BIN/agent-speak"
 AGENT_VOICE_SUMMARY="$LOCAL_BIN/agent-voice-summary"
 AGENT_VOICE_SESSION="$LOCAL_BIN/agent-voice-session"
+AGENT_SPEAK_BIN="$STATE_DIR/bin/agent-speak"
+AGENT_VOICE_SUMMARY_BIN="$STATE_DIR/bin/agent-voice-summary"
 AGENT_VOICE_SESSION_BIN="$STATE_DIR/bin/agent-voice-session"
 LAUNCHD_LABEL="com.keegoid.agent-voice"
 LAUNCHD_PLIST="$HOME/Library/LaunchAgents/$LAUNCHD_LABEL.plist"
@@ -296,6 +298,22 @@ prepare_service_transition() {
   esac
 }
 
+strip_agent_voice_configure_command() {
+  local target="$1"
+  local rendered original_mode
+
+  original_mode="$(file_mode "$target")" || return 1
+  rendered="$(mktemp "$TEMP_ROOT/agent-voice-cli.XXXXXX")"
+  awk '
+    /^  configure / { next }
+    $0 == "  configure)" { skip = 1; next }
+    $0 == "  restore)" { skip = 0 }
+    !skip { print }
+  ' "$target" >"$rendered"
+  chmod "$original_mode" "$rendered" || return 1
+  mv "$rendered" "$target"
+}
+
 prepare_install_source() {
   local patched_source="$TEMP_ROOT/agent-voice-install"
   local source_archive="$TEMP_ROOT/agent-voice-source.tar"
@@ -304,12 +322,25 @@ prepare_install_source() {
   [[ -f "$AGENT_VOICE_OVERLAY/agent_voice/voices.py" ]] ||
     die "missing agent-voice overlay: $AGENT_VOICE_OVERLAY"
   [[ -f "$NO_SERVICE_PATCH" ]] || die "missing no-service patch: $NO_SERVICE_PATCH"
-  git -C "$SOURCE_DIR" archive --format=tar HEAD -o "$source_archive"
+  git -C "$SOURCE_DIR" archive --format=tar HEAD -o "$source_archive" \
+    install.sh \
+    pyproject.toml \
+    uv.lock \
+    README.md \
+    agent_voice/__init__.py \
+    agent_voice/mute_state.py \
+    agent_voice/server.py \
+    agent_voice/voices.py \
+    config/pronunciations.json \
+    scripts/agent-voice \
+    scripts/agent-speak \
+    scripts/agent-voice-summary
   mkdir -p "$patched_source"
   tar -xf "$source_archive" -C "$patched_source"
-  cp -R "$AGENT_VOICE_OVERLAY/." "$patched_source/"
+  cp "$AGENT_VOICE_OVERLAY/README.md" "$patched_source/README.md"
+  cp "$AGENT_VOICE_OVERLAY/agent_voice/voices.py" "$patched_source/agent_voice/voices.py"
+  strip_agent_voice_configure_command "$patched_source/scripts/agent-voice"
   for relative in \
-    agent_voice/hermes_config.py \
     agent_voice/server.py \
     scripts/agent-speak \
     scripts/agent-voice-summary
@@ -678,15 +709,25 @@ verify_installed_voice_default() {
     "$python" - "$SELECTED_VOICE" <<'PY'
 import sys
 
-from agent_voice.hermes_config import DEFAULT_VOICE
-from agent_voice.server import RequestPayload
+from agent_voice.server import RequestPayload, _notify_default_voice
 
 selected = sys.argv[1]
-assert DEFAULT_VOICE == selected, (DEFAULT_VOICE, selected)
 assert RequestPayload(input="voice default check").voice == selected
+assert _notify_default_voice() == selected
 print(f"Verified installed default voice: {selected}")
 PY
   )
+}
+
+verify_installed_helper_defaults() {
+  local helper
+
+  for helper in "$AGENT_VOICE_SUMMARY_BIN" "$AGENT_SPEAK_BIN"; do
+    [[ -x "$helper" ]] || die "installed voice helper was not found at $helper"
+    grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$helper" ||
+      die "$(basename "$helper") does not default to $SELECTED_VOICE"
+  done
+  say "Verified installed helper defaults: $SELECTED_VOICE"
 }
 
 run_voice_test() {
@@ -709,10 +750,7 @@ run_voice_test() {
     "agent-voice health is unexpected or muted: $health"
 
   verify_installed_voice_default
-  grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$AGENT_VOICE_SUMMARY" ||
-    die "agent-voice-summary does not default to $SELECTED_VOICE"
-  grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$AGENT_SPEAK" ||
-    die "agent-speak does not default to $SELECTED_VOICE"
+  verify_installed_helper_defaults
 
   wav="$TEMP_ROOT/agent-voice-setup-test.wav"
   if [[ "$PLAY_TEST" -ne 1 ]]; then

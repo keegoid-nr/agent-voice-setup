@@ -221,29 +221,11 @@ The installed `agent-voice` command supports:
 - `agent-voice mute status`
 - `agent-voice mute toggle`
 - `agent-voice unmute`
-- `agent-voice configure hermes`
 - `agent-voice restore`
 - `agent-voice restore --list`
 - `agent-voice restore --backup <id>`
 - `agent-voice uninstall`
 - `agent-voice uninstall --destroy-caches`
-
-Hermes configuration behavior:
-
-- `agent-voice configure hermes` updates `~/.hermes/config.yaml` so Hermes uses
-  the local OpenAI-compatible speech endpoint:
-  - `tts.provider: openai`
-  - `tts.openai.model: qwen3-tts` unless overridden.
-  - `tts.openai.voice: chesapeake_balanced` unless overridden.
-  - `tts.openai.base_url: http://127.0.0.1:8880/v1` unless overridden.
-  - `voice.auto_tts: true` by default.
-- It writes `VOICE_TOOLS_OPENAI_KEY=agent-voice-local` to `~/.hermes/.env`
-  when that key is missing or empty. Existing non-empty values are preserved.
-- It backs up existing Hermes config files before editing.
-- `--dry-run` prints intended changes without modifying files.
-- `--restart-gateway` restarts the Hermes gateway after successful writes.
-- `--hermes-home` must point inside `$HOME` unless `--allow-outside-home` is
-  set.
 
 Restore behavior:
 
