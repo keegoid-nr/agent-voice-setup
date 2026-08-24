@@ -36,6 +36,21 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+Interactive terminal runs ask which default voice to install:
+
+1. `chesapeake_balanced` — adult male British baritone
+2. `chesapeake_balanced_female` — adult female British contralto
+3. `cool_street_deadpan` — dry, street-smart female voice
+
+Press Enter to choose `chesapeake_balanced`. For automation or noninteractive
+runs, pass the choice explicitly; noninteractive runs without a choice use the
+same default and never wait for input:
+
+```bash
+./setup.sh --voice chesapeake_balanced_female
+AGENT_VOICE_SETUP_VOICE=cool_street_deadpan ./setup.sh
+```
+
 On a managed Mac where `launchctl bootstrap` is unavailable:
 
 ```bash
@@ -69,6 +84,7 @@ Useful options:
 ```bash
 ./setup.sh --dry-run
 ./setup.sh --no-play
+./setup.sh --voice chesapeake_balanced_female
 ./setup.sh --service-mode session
 ./setup.sh --service-mode foreground
 ```
