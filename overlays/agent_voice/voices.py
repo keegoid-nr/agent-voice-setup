@@ -11,18 +11,8 @@ _CONSISTENT_SPEAKER = (
 )
 
 _CHESAPEAKE_BALANCED = (
-    "An adult Black American man in his late thirties with a natural mid-baritone "
-    "voice. Mostly General American speech with a subtle central Maryland, "
-    "Baltimore-Washington corridor influence: relaxed vowels and consonants, never "
-    "an exaggerated regional accent. Calm, affirming, warm, and emotionally "
-    "grounded. Medium-slow conversational pace, gentle downward sentence endings, "
-    "clean soft-edged diction, and an easy half-smile. Add a small touch of "
-    "endearingly earnest, mildly dorky friendliness, as if he is naturally "
-    "supportive and does not mind sounding a little uncool. Close, clean studio "
-    "sound. Avoid caricature, slang performance, announcer polish, dramatic bass, "
-    "therapy-session affect, whispering, breathiness, gravel, forced cheerfulness, "
-    "or theatrical comedy."
-    + _CONSISTENT_SPEAKER
+    "A warm British baritone, friendly and steady, not too formal, like someone "
+    "who's right there with you. Clear, reassuring, but never stiff."
 )
 
 _COOL_STREET_DEADPAN = (

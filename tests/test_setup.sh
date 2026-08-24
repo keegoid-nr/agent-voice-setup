@@ -15,6 +15,15 @@ grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
+CHESAPEAKE_DESIGN="A warm British baritone, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
+PYTHONDONTWRITEBYTECODE=1 \
+PYTHONPATH="$AGENT_VOICE_OVERLAY" python3 -c '
+import os
+
+from agent_voice.voices import VOICE_DESIGNS
+
+assert VOICE_DESIGNS["chesapeake_balanced"] == os.environ["CHESAPEAKE_DESIGN"]
+'
 [[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 2 ]]
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
