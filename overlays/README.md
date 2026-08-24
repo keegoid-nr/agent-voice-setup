@@ -230,11 +230,12 @@ OpenAI-compatible speech `response_format` values:
 
 MP3 and Opus responses require `ffmpeg` on `PATH`.
 
-The server uses stable Qwen3 sampling defaults for speech:
-`AGENT_VOICE_TTS_TEMPERATURE` (default `0.9`),
+The server uses conservative Qwen3 sampling defaults for more stable speaker identity:
+`AGENT_VOICE_TTS_TEMPERATURE` (default `0.7`),
 `AGENT_VOICE_TTS_TOP_P` (default `0.95`), and
 `AGENT_VOICE_TTS_REPETITION_PENALTY` (default `1.05`). Retry attempts use the
-`AGENT_VOICE_TTS_RETRY_*` variants. Before encoding, generated waveforms are
+`AGENT_VOICE_TTS_RETRY_*` variants, with retry temperature defaulting to `0.6`.
+Before encoding, generated waveforms are
 sanitized and peak-limited with `AGENT_VOICE_TTS_PEAK_LIMIT` (default `0.98`).
 The generation watchdog is reported in health as `tts_watchdog_seconds`.
 
@@ -259,6 +260,7 @@ compatibility but are not forwarded to the current MLX Whisper runtime.
 Public voices:
 
 - `chesapeake_balanced` (default)
+- `chesapeake_balanced_female`
 - `cool_street_deadpan`
 
 ## Hermes Agent
