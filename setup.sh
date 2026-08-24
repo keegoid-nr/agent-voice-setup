@@ -665,6 +665,30 @@ wait_for_json_endpoint() {
   return 1
 }
 
+verify_installed_voice_default() {
+  local app_dir="$STATE_DIR/app"
+  local python="$app_dir/.venv/bin/python"
+
+  [[ -d "$app_dir/agent_voice" ]] ||
+    die "installed agent-voice package was not found at $app_dir/agent_voice"
+  [[ -x "$python" ]] || die "installed agent-voice Python was not found at $python"
+
+  (
+    cd "$app_dir"
+    "$python" - "$SELECTED_VOICE" <<'PY'
+import sys
+
+from agent_voice.hermes_config import DEFAULT_VOICE
+from agent_voice.server import RequestPayload
+
+selected = sys.argv[1]
+assert DEFAULT_VOICE == selected, (DEFAULT_VOICE, selected)
+assert RequestPayload(input="voice default check").voice == selected
+print(f"Verified installed default voice: {selected}")
+PY
+  )
+}
+
 run_voice_test() {
   local wav play_args=() health
 
@@ -684,17 +708,7 @@ run_voice_test() {
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 
-  "$STATE_DIR/app/.venv/bin/python" - "$SELECTED_VOICE" <<'PY'
-import sys
-
-from agent_voice.hermes_config import DEFAULT_VOICE
-from agent_voice.server import RequestPayload
-
-selected = sys.argv[1]
-assert DEFAULT_VOICE == selected, (DEFAULT_VOICE, selected)
-assert RequestPayload(input="voice default check").voice == selected
-print(f"Verified installed default voice: {selected}")
-PY
+  verify_installed_voice_default
   grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$AGENT_VOICE_SUMMARY" ||
     die "agent-voice-summary does not default to $SELECTED_VOICE"
   grep -Fq "AGENT_VOICE_VOICE:-$SELECTED_VOICE" "$AGENT_SPEAK" ||

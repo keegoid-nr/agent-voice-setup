@@ -145,6 +145,18 @@ jq -e '.custom == true and .permissions.allow == ["Read"] and .hooks.SessionStar
   "$(find "$STATE_DIR/backups" -type f -name settings.json | head -n 1)" >/dev/null
 
 mkdir -p "$STATE_DIR/app/.venv/bin" "$STATE_DIR/bin"
+mkdir -p "$STATE_DIR/app/agent_voice"
+cat >"$STATE_DIR/app/.venv/bin/python" <<'FAKE_VERIFY_PYTHON'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -d agent_voice ]]
+[[ "$1" == "-" ]]
+[[ "$2" == "chesapeake_balanced" ]]
+grep -Fq 'from agent_voice.hermes_config import DEFAULT_VOICE'
+FAKE_VERIFY_PYTHON
+chmod 755 "$STATE_DIR/app/.venv/bin/python"
+verify_installed_voice_default
+
 cp "$SESSION_HELPER_SOURCE" "$AGENT_VOICE_SESSION_BIN"
 chmod 755 "$AGENT_VOICE_SESSION_BIN"
 cat >"$STATE_DIR/app/.venv/bin/python" <<'FAKE_PYTHON'
