@@ -102,7 +102,7 @@ AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh
 
 `setup.sh` verifies a pinned agent-voice checkout, applies the tracked
 three-voice `chesapeake_balanced`/`chesapeake_balanced_female`/
-`cool_street_deadpan` catalog overlay and conservative sampling patch, and
+`cool_street_deadpan` catalog overlay, and
 delegates runtime setup to
 that temporary verified source. The installed server is configured as follows:
 
@@ -156,11 +156,11 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 
 The setup pins:
 
-- agent-voice commit `1dcb3ad0f940b6d4fc3831dedf366335e6fc9dd4`,
-  including the repaired Qwen sampler, plus the tracked three-voice
+- agent-voice commit `01650d03bc44d049885f48f76c0c73f1344c6a8f`,
+  including the repaired Qwen sampler and conservative sampling defaults,
+  plus the tracked three-voice
   `chesapeake_balanced`/`chesapeake_balanced_female`/`cool_street_deadpan`
-  overlay in `overlays/agent_voice/voices.py` and conservative sampling patch
-  in `patches/agent-voice-stable-sampling.patch`.
+  overlay in `overlays/agent_voice/voices.py`.
 - Qwen model revision `7d3824abff87e49756bb0f83fb5411de75d160c4`.
 
 The Hugging Face cache is content-addressed. Setup recalculates every snapshot
