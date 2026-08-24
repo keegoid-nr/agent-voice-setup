@@ -6,13 +6,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SETUP="$REPO_ROOT/setup.sh"
 SESSION_HELPER="$REPO_ROOT/scripts/agent-voice-session"
 NO_SERVICE_PATCH="$REPO_ROOT/patches/agent-voice-no-service.patch"
-STABLE_SAMPLING_PATCH="$REPO_ROOT/patches/agent-voice-stable-sampling.patch"
 AGENT_VOICE_OVERLAY="$REPO_ROOT/overlays"
 
 bash -n "$SETUP" "$SESSION_HELPER"
 "$SETUP" --help >/dev/null
 git apply --stat "$NO_SERVICE_PATCH" >/dev/null
-git apply --stat "$STABLE_SAMPLING_PATCH" >/dev/null
 grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
@@ -31,8 +29,6 @@ assert VOICE_DESIGNS["chesapeake_balanced"] == os.environ["CHESAPEAKE_DESIGN"]
 assert VOICE_DESIGNS["chesapeake_balanced_female"] == os.environ["CHESAPEAKE_FEMALE_DESIGN"]
 '
 [[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 3 ]]
-grep -Fq 'AGENT_VOICE_TTS_TEMPERATURE") or "0.7"' "$STABLE_SAMPLING_PATCH"
-grep -Fq 'AGENT_VOICE_TTS_RETRY_TEMPERATURE") or "0.6"' "$STABLE_SAMPLING_PATCH"
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/agent-voice-setup-test.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT

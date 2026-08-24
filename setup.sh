@@ -4,8 +4,8 @@
 set -Eeuo pipefail
 
 readonly AGENT_VOICE_REPO_URL="https://github.com/keegoid/agent-voice.git"
-readonly AGENT_VOICE_COMMIT="1dcb3ad0f940b6d4fc3831dedf366335e6fc9dd4"
-readonly AGENT_VOICE_TREE_SHA256="2165078f78db8f83dd6916f075715de19f0ff66b7dbeda649c80a864079d638b"
+readonly AGENT_VOICE_COMMIT="01650d03bc44d049885f48f76c0c73f1344c6a8f"
+readonly AGENT_VOICE_TREE_SHA256="284c49712eacdf4ad181f24d998a44ea51e2f65cd0dfa096026a99c46cbeafaa"
 readonly QWEN_MODEL_ID="mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 readonly QWEN_MODEL_REVISION="7d3824abff87e49756bb0f83fb5411de75d160c4"
 readonly VOICE_SERVER_URL="http://127.0.0.1:8880"
@@ -16,7 +16,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${AGENT_VOICE_HOME:-$HOME/.agent-voice}"
 SOURCE_DIR="$STATE_DIR/sources/${AGENT_VOICE_COMMIT:0:12}"
 NO_SERVICE_PATCH="$SCRIPT_DIR/patches/agent-voice-no-service.patch"
-STABLE_SAMPLING_PATCH="$SCRIPT_DIR/patches/agent-voice-stable-sampling.patch"
 AGENT_VOICE_OVERLAY="$SCRIPT_DIR/overlays"
 SESSION_HELPER_SOURCE="$SCRIPT_DIR/scripts/agent-voice-session"
 BACKUP_ID="setup-$(date '+%Y%m%d%H%M%S')-$$"
@@ -261,7 +260,6 @@ prepare_install_source() {
   [[ -f "$AGENT_VOICE_OVERLAY/agent_voice/voices.py" ]] ||
     die "missing agent-voice overlay: $AGENT_VOICE_OVERLAY"
   [[ -f "$NO_SERVICE_PATCH" ]] || die "missing no-service patch: $NO_SERVICE_PATCH"
-  [[ -f "$STABLE_SAMPLING_PATCH" ]] || die "missing stable-sampling patch: $STABLE_SAMPLING_PATCH"
   git -C "$SOURCE_DIR" archive --format=tar HEAD -o "$source_archive"
   mkdir -p "$patched_source"
   tar -xf "$source_archive" -C "$patched_source"
@@ -279,9 +277,6 @@ prepare_install_source() {
     chmod "$original_mode" "$rendered" || return 1
     mv "$rendered" "$patched_source/$relative"
   done
-  git -C "$patched_source" apply --check "$STABLE_SAMPLING_PATCH" ||
-    die "the stable-sampling patch no longer matches the pinned agent-voice source"
-  git -C "$patched_source" apply "$STABLE_SAMPLING_PATCH"
   if [[ "$SERVICE_MODE" != "launchd" ]]; then
     git -C "$patched_source" apply --unidiff-zero --check "$NO_SERVICE_PATCH" ||
       die "the no-service patch no longer matches the pinned agent-voice installer"
@@ -295,7 +290,6 @@ install_agent_voice() {
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     would apply-voice-overlay "$AGENT_VOICE_OVERLAY"
-    would apply-stable-sampling-patch "$STABLE_SAMPLING_PATCH"
     if [[ "$SERVICE_MODE" == "launchd" ]]; then
       would patched-agent-voice-install --source-dir verified-source --no-codex-config
     else
