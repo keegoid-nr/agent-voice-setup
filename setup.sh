@@ -4,8 +4,8 @@
 set -Eeuo pipefail
 
 readonly AGENT_VOICE_REPO_URL="https://github.com/keegoid/agent-voice.git"
-readonly AGENT_VOICE_COMMIT="01650d03bc44d049885f48f76c0c73f1344c6a8f"
-readonly AGENT_VOICE_TREE_SHA256="284c49712eacdf4ad181f24d998a44ea51e2f65cd0dfa096026a99c46cbeafaa"
+readonly AGENT_VOICE_COMMIT="b07e7097cd4753460c7f91372f6545fa5c1ce640"
+readonly AGENT_VOICE_TREE_SHA256="5793e2fe9a5c9eaaec52e9c325eb065318ae7304534cfe22c127230a5ba46697"
 readonly QWEN_MODEL_ID="mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 readonly QWEN_MODEL_REVISION="7d3824abff87e49756bb0f83fb5411de75d160c4"
 readonly VOICE_SERVER_URL="http://127.0.0.1:8880"
