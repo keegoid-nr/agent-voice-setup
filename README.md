@@ -172,8 +172,9 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 
 The setup pins:
 
-- agent-voice commit `01650d03bc44d049885f48f76c0c73f1344c6a8f`,
-  including the repaired Qwen sampler and conservative sampling defaults,
+- agent-voice commit `b07e7097cd4753460c7f91372f6545fa5c1ce640`,
+  including the repaired Qwen sampler, continuous cue generation, stable
+  per-voice seeding, bounded incremental generation, and phase timing,
   plus the tracked three-voice
   `chesapeake_balanced`/`chesapeake_balanced_female`/`cool_street_deadpan`
   overlay in `overlays/agent_voice/voices.py`.
