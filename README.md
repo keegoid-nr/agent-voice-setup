@@ -104,6 +104,10 @@ speaker playback.
 | `~/.claude/CLAUDE.md` | Managed voice timing instructions |
 | `~/.claude/settings.json` | `agent-speak` permission and optional session hook |
 
+The managed block tells Claude to stand down in sessions where the
+nr-casework plugin owns speech (support-case directories), so a turn never ends
+with two spoken summaries.
+
 Existing Claude files are preserved outside a marked managed block. Before
 editing them, setup writes copies under `~/.agent-voice/backups/setup-*`.
 The upstream agent-voice installer also backs up the installed app and shims.

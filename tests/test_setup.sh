@@ -141,6 +141,7 @@ grep -Fq 'existing instructions' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'chesapeake_balanced' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
+grep -Fq '`[NR-CASEWORK VOICE]` reminder' "$CLAUDE_INSTRUCTIONS"
 [[ "$(/usr/bin/stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")" == "640" ]]
 
 rule="Bash($AGENT_SPEAK:*)"

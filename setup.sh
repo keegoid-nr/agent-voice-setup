@@ -564,6 +564,13 @@ Speak at these moments:
 Keep cues concise and specific. Do not narrate tiny read-only commands. Invoke
 the helper directly with one quoted message argument; do not wait for playback
 or treat a speech failure as a task failure.
+
+Stand down when a plugin owns speech for the session. If the context carries an
+\`[NR-CASEWORK VOICE]\` reminder or an \`NR_CASEWORK_VOICE:\` cue contract, the
+session is an nr-casework support case: do not call this helper at all, and
+follow that plugin's voice rules instead. Its helper redacts customer data and
+its Stop hook already speaks the turn-end cue, so speaking here as well doubles
+the closing summary and bypasses that redaction.
 EOF
     printf '%s\n' "$CLAUDE_BLOCK_END"
   } >"$rendered"
