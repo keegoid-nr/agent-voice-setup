@@ -19,7 +19,7 @@ grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
 grep -Fq '"chesapeake_balanced_female": _CHESAPEAKE_BALANCED_FEMALE' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 CHESAPEAKE_DESIGN="A warm adult male British baritone, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
-CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff. Dry, composed delivery: clipped sentences, flat even pacing, understated rather than enthusiastic, no upward lilt at the end of sentences, a quiet half-smile in the tone but never bubbly or theatrical." \
+CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff. Maintain one consistent speaker identity for the entire output: same timbre, pitch center, age, accent, microphone distance, and vocal texture from sentence to sentence. Emotional swings should change only cadence, pause length, intensity, and emphasis. Do not morph into a different voice, character, register, accent, or age between sentences." \
 PYTHONDONTWRITEBYTECODE=1 \
 PYTHONPATH="$AGENT_VOICE_OVERLAY" python3 -c '
 import os
