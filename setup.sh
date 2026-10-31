@@ -4,8 +4,8 @@
 set -Eeuo pipefail
 
 readonly AGENT_VOICE_REPO_URL="https://github.com/keegoid/agent-voice.git"
-readonly AGENT_VOICE_COMMIT="b07e7097cd4753460c7f91372f6545fa5c1ce640"
-readonly AGENT_VOICE_TREE_SHA256="5793e2fe9a5c9eaaec52e9c325eb065318ae7304534cfe22c127230a5ba46697"
+readonly AGENT_VOICE_COMMIT="0b00e27eff92f184e058b61c5483f47498823db0"
+readonly AGENT_VOICE_TREE_SHA256="213b2527ab051f794b14a50cb3a95a288f7e256ae20f9734e9a7840b1c0f2d8d"
 readonly QWEN_MODEL_ID="mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 readonly QWEN_MODEL_REVISION="7d3824abff87e49756bb0f83fb5411de75d160c4"
 readonly VOICE_SERVER_URL="http://127.0.0.1:8880"
@@ -47,7 +47,8 @@ Usage: ./setup.sh [options]
 Options:
   --service-mode MODE  Server lifecycle: launchd (default), session, or foreground.
   --voice NAME         Default voice: chesapeake_balanced,
-                       chesapeake_balanced_female, or cool_street_deadpan.
+                       chesapeake_balanced_female, cool_street_deadpan, or
+                       fig_warm_deadpan.
   --dry-run           Print the planned operations without changing the laptop.
   --no-play           Generate and validate the test WAV without playing it.
   -h, --help          Show this help.
@@ -150,7 +151,8 @@ set_selected_voice_from_choice() {
     ""|1) SELECTED_VOICE="chesapeake_balanced" ;;
     2) SELECTED_VOICE="chesapeake_balanced_female" ;;
     3) SELECTED_VOICE="cool_street_deadpan" ;;
-    *) die "invalid voice selection: $choice (expected 1, 2, or 3)" ;;
+    4) SELECTED_VOICE="fig_warm_deadpan" ;;
+    *) die "invalid voice selection: $choice (expected 1, 2, 3, or 4)" ;;
   esac
 }
 
@@ -163,6 +165,7 @@ select_setup_voice() {
       printf '%s\n' "  1) Chesapeake Balanced — adult male British baritone (default)"
       printf '%s\n' "  2) Chesapeake Balanced Female — adult female British contralto"
       printf '%s\n' "  3) Cool Street Deadpan — dry, street-smart female voice"
+      printf '%s\n' "  4) Fig Warm Deadpan — the same dry voice, a touch warmer"
       printf '%s' "Selection [1]: "
       IFS= read -r choice || choice=""
       set_selected_voice_from_choice "$choice"
@@ -172,7 +175,7 @@ select_setup_voice() {
   fi
 
   case "$SELECTED_VOICE" in
-    chesapeake_balanced|chesapeake_balanced_female|cool_street_deadpan) ;;
+    chesapeake_balanced|chesapeake_balanced_female|cool_street_deadpan|fig_warm_deadpan) ;;
     *) die "invalid voice: $SELECTED_VOICE" ;;
   esac
   say "Selected voice: $SELECTED_VOICE"
@@ -553,13 +556,20 @@ operator telemetry, never the task: if speech is offline, continue working.
 Every spoken message must begin with \`$speaker\` so the speaker is clear away
 from the screen.
 
+Delivery: dry, composed, and clipped. Lead with the result, then stop. At most
+one quiet dry observation per cue, only when it sharpens the point. No
+cheerleading openers ("Great", "Sure", "Absolutely"), no exclamation marks, and
+no restating the task back. Plain words, specific numbers, flat uncertainty when
+the facts are missing.
+
 Speak at these moments:
 
 - Before substantive exploration or edits: one sentence with intent and why.
 - Before risky, user-visible, long-running, irreversible, external, or expensive
   actions: say the concrete action about to happen.
 - Before the final response: give a useful one-to-three-sentence outcome,
-  verification, and residual risk or next step.
+  verification, and residual risk or next step. Close on the outcome, with one
+  dry line at most, never a pleasantry.
 
 Keep cues concise and specific. Do not narrate tiny read-only commands. Invoke
 the helper directly with one quoted message argument; do not wait for playback
@@ -752,7 +762,7 @@ run_voice_test() {
     die "agent-voice did not become reachable at $VOICE_SERVER_URL"
   health="$(curl -fsS --max-time 3 "$VOICE_SERVER_URL/v1/health")"
   jq -e --arg model "$QWEN_MODEL_ID" \
-    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "chesapeake_balanced_female", "cool_street_deadpan"])' \
+    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "chesapeake_balanced_female", "cool_street_deadpan", "fig_warm_deadpan"])' \
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 

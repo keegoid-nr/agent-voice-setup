@@ -6,7 +6,7 @@ One-command setup for local agent voice on macOS Apple Silicon:
   session supervisor, or a foreground terminal.
 - Qwen3-TTS VoiceDesign through MLX-Audio with `chesapeake_balanced` as the
   general default, `chesapeake_balanced_female` as its contralto counterpart,
-  and `cool_street_deadpan` retained for compatibility.
+  `cool_street_deadpan` retained for compatibility, and `fig_warm_deadpan` as its warmer variant.
 - Claude Code progress cues timed like Codex: start, important boundary, and
   closing handoff.
 - A final audible synthesis test that loads Qwen and validates the generated
@@ -41,6 +41,7 @@ Interactive terminal runs ask which default voice to install:
 1. `chesapeake_balanced` — adult male British baritone
 2. `chesapeake_balanced_female` — adult female British contralto
 3. `cool_street_deadpan` — dry, street-smart female voice
+4. `fig_warm_deadpan` — the same dry voice, a touch warmer
 
 Press Enter to choose `chesapeake_balanced`. For automation or noninteractive
 runs, pass the choice explicitly; noninteractive runs without a choice use the
@@ -180,12 +181,13 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 
 The setup pins:
 
-- agent-voice commit `b07e7097cd4753460c7f91372f6545fa5c1ce640`,
+- agent-voice commit `0b00e27eff92f184e058b61c5483f47498823db0`,
   including the repaired Qwen sampler, continuous cue generation, stable
   per-voice seeding, bounded incremental generation, and phase timing,
-  plus the tracked three-voice
-  `chesapeake_balanced`/`chesapeake_balanced_female`/`cool_street_deadpan`
+  plus the tracked four-voice
+  `chesapeake_balanced`/`chesapeake_balanced_female`/`cool_street_deadpan`/`fig_warm_deadpan`
   overlay in `overlays/agent_voice/voices.py`.
+  The pinned runtime also carries the MLX-Audio 0.5.7 upgrade.
 - Qwen model revision `7d3824abff87e49756bb0f83fb5411de75d160c4`.
 
 The Hugging Face cache is content-addressed. Setup recalculates every snapshot

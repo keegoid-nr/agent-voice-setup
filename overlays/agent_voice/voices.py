@@ -20,6 +20,7 @@ _CHESAPEAKE_BALANCED_FEMALE = (
     "A warm adult female British contralto, friendly and steady, not too formal, "
     "like someone "
     "who's right there with you. Clear, reassuring, but never stiff."
+    + _CONSISTENT_SPEAKER
 )
 
 _COOL_STREET_DEADPAN = (
@@ -29,8 +30,17 @@ _COOL_STREET_DEADPAN = (
     + _CONSISTENT_SPEAKER
 )
 
+_FIG_WARM_DEADPAN = (
+    "A young woman voice actor with a mid-range tone and dry deadpan confidence. "
+    "Street-smart, neon-lit back-alley cool under pressure. "
+    "Not bubbly and no high-pitched or fast-paced genki. "
+    "A touch warmer and more human, with a faint dry half-smile under the words."
+    + _CONSISTENT_SPEAKER
+)
+
 VOICE_DESIGNS: dict[str, str] = {
     "chesapeake_balanced": _CHESAPEAKE_BALANCED,
     "chesapeake_balanced_female": _CHESAPEAKE_BALANCED_FEMALE,
     "cool_street_deadpan": _COOL_STREET_DEADPAN,
+    "fig_warm_deadpan": _FIG_WARM_DEADPAN,
 }

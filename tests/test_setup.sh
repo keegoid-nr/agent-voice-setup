@@ -14,12 +14,14 @@ grep -Fq -- '--voice NAME' <<<"$help_output"
 git apply --stat "$NO_SERVICE_PATCH" >/dev/null
 grep -Fq '"cool_street_deadpan": _COOL_STREET_DEADPAN' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
+grep -Fq '"fig_warm_deadpan": _FIG_WARM_DEADPAN' \
+  "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 grep -Fq '"chesapeake_balanced_female": _CHESAPEAKE_BALANCED_FEMALE' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 CHESAPEAKE_DESIGN="A warm adult male British baritone, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
-CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
+CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff. Maintain one consistent speaker identity for the entire output: same timbre, pitch center, age, accent, microphone distance, and vocal texture from sentence to sentence. Emotional swings should change only cadence, pause length, intensity, and emphasis. Do not morph into a different voice, character, register, accent, or age between sentences." \
 PYTHONDONTWRITEBYTECODE=1 \
 PYTHONPATH="$AGENT_VOICE_OVERLAY" python3 -c '
 import os
@@ -29,7 +31,7 @@ from agent_voice.voices import VOICE_DESIGNS
 assert VOICE_DESIGNS["chesapeake_balanced"] == os.environ["CHESAPEAKE_DESIGN"]
 assert VOICE_DESIGNS["chesapeake_balanced_female"] == os.environ["CHESAPEAKE_FEMALE_DESIGN"]
 '
-[[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 3 ]]
+[[ "$(grep -Ec '^    "[a-z_]+": _[A-Z_]+,$' "$AGENT_VOICE_OVERLAY/agent_voice/voices.py")" -eq 4 ]]
 
 SETUP_PATH="$SETUP" bash <<'TEST'
 set -euo pipefail
@@ -43,7 +45,8 @@ for choice_and_voice in \
   ':chesapeake_balanced' \
   '1:chesapeake_balanced' \
   '2:chesapeake_balanced_female' \
-  '3:cool_street_deadpan'
+  '3:cool_street_deadpan' \
+  '4:fig_warm_deadpan'
 do
   choice="${choice_and_voice%%:*}"
   expected="${choice_and_voice#*:}"
@@ -52,13 +55,13 @@ do
   [[ "$SELECTED_VOICE" == "$expected" ]]
 done
 
-for voice in chesapeake_balanced chesapeake_balanced_female cool_street_deadpan; do
+for voice in chesapeake_balanced chesapeake_balanced_female cool_street_deadpan fig_warm_deadpan; do
   SELECTED_VOICE="$voice"
   select_setup_voice >/dev/null
   [[ "$SELECTED_VOICE" == "$voice" ]]
 done
 
-if (set_selected_voice_from_choice 4 >/dev/null 2>&1); then
+if (set_selected_voice_from_choice 5 >/dev/null 2>&1); then
   echo "invalid menu choice unexpectedly accepted" >&2
   exit 1
 fi
@@ -141,6 +144,8 @@ grep -Fq 'existing instructions' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'chesapeake_balanced' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'Delivery: dry, composed, and clipped.' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'no exclamation marks' "$CLAUDE_INSTRUCTIONS"
 grep -Fq '`[NR-CASEWORK VOICE]` reminder' "$CLAUDE_INSTRUCTIONS"
 [[ "$(/usr/bin/stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")" == "640" ]]
 

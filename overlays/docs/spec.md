@@ -157,6 +157,7 @@ Public voice names are:
 - `chesapeake_balanced` (default)
 - `chesapeake_balanced_female`
 - `cool_street_deadpan`
+- `fig_warm_deadpan`
 
 ## Agent Helpers
 
