@@ -19,7 +19,7 @@ grep -Fq '"chesapeake_balanced": _CHESAPEAKE_BALANCED' \
 grep -Fq '"chesapeake_balanced_female": _CHESAPEAKE_BALANCED_FEMALE' \
   "$AGENT_VOICE_OVERLAY/agent_voice/voices.py"
 CHESAPEAKE_DESIGN="A warm adult male British baritone, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
-CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff." \
+CHESAPEAKE_FEMALE_DESIGN="A warm adult female British contralto, friendly and steady, not too formal, like someone who's right there with you. Clear, reassuring, but never stiff. Dry, composed delivery: clipped sentences, flat even pacing, understated rather than enthusiastic, no upward lilt at the end of sentences, a quiet half-smile in the tone but never bubbly or theatrical." \
 PYTHONDONTWRITEBYTECODE=1 \
 PYTHONPATH="$AGENT_VOICE_OVERLAY" python3 -c '
 import os
@@ -141,6 +141,8 @@ grep -Fq 'existing instructions' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'chesapeake_balanced' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'Delivery: dry, composed, and clipped.' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'no exclamation marks' "$CLAUDE_INSTRUCTIONS"
 grep -Fq '`[NR-CASEWORK VOICE]` reminder' "$CLAUDE_INSTRUCTIONS"
 [[ "$(/usr/bin/stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")" == "640" ]]
 

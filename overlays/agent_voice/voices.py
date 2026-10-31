@@ -19,7 +19,10 @@ _CHESAPEAKE_BALANCED = (
 _CHESAPEAKE_BALANCED_FEMALE = (
     "A warm adult female British contralto, friendly and steady, not too formal, "
     "like someone "
-    "who's right there with you. Clear, reassuring, but never stiff."
+    "who's right there with you. Clear, reassuring, but never stiff. "
+    "Dry, composed delivery: clipped sentences, flat even pacing, understated "
+    "rather than enthusiastic, no upward lilt at the end of sentences, a quiet "
+    "half-smile in the tone but never bubbly or theatrical."
 )
 
 _COOL_STREET_DEADPAN = (
