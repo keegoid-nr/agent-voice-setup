@@ -180,12 +180,13 @@ the setup-managed Claude hook. Unrelated Claude hooks are preserved.
 
 The setup pins:
 
-- agent-voice commit `b07e7097cd4753460c7f91372f6545fa5c1ce640`,
+- agent-voice commit `0b00e27eff92f184e058b61c5483f47498823db0`,
   including the repaired Qwen sampler, continuous cue generation, stable
   per-voice seeding, bounded incremental generation, and phase timing,
   plus the tracked three-voice
   `chesapeake_balanced`/`chesapeake_balanced_female`/`cool_street_deadpan`
   overlay in `overlays/agent_voice/voices.py`.
+  The pinned runtime also carries the MLX-Audio 0.5.7 upgrade.
 - Qwen model revision `7d3824abff87e49756bb0f83fb5411de75d160c4`.
 
 The Hugging Face cache is content-addressed. Setup recalculates every snapshot
