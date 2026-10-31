@@ -47,7 +47,8 @@ Usage: ./setup.sh [options]
 Options:
   --service-mode MODE  Server lifecycle: launchd (default), session, or foreground.
   --voice NAME         Default voice: chesapeake_balanced,
-                       chesapeake_balanced_female, or cool_street_deadpan.
+                       chesapeake_balanced_female, cool_street_deadpan, or
+                       fig_warm_deadpan.
   --dry-run           Print the planned operations without changing the laptop.
   --no-play           Generate and validate the test WAV without playing it.
   -h, --help          Show this help.
@@ -150,7 +151,8 @@ set_selected_voice_from_choice() {
     ""|1) SELECTED_VOICE="chesapeake_balanced" ;;
     2) SELECTED_VOICE="chesapeake_balanced_female" ;;
     3) SELECTED_VOICE="cool_street_deadpan" ;;
-    *) die "invalid voice selection: $choice (expected 1, 2, or 3)" ;;
+    4) SELECTED_VOICE="fig_warm_deadpan" ;;
+    *) die "invalid voice selection: $choice (expected 1, 2, 3, or 4)" ;;
   esac
 }
 
@@ -163,6 +165,7 @@ select_setup_voice() {
       printf '%s\n' "  1) Chesapeake Balanced — adult male British baritone (default)"
       printf '%s\n' "  2) Chesapeake Balanced Female — adult female British contralto"
       printf '%s\n' "  3) Cool Street Deadpan — dry, street-smart female voice"
+      printf '%s\n' "  4) Fig Warm Deadpan — the same dry voice, a touch warmer"
       printf '%s' "Selection [1]: "
       IFS= read -r choice || choice=""
       set_selected_voice_from_choice "$choice"
@@ -172,7 +175,7 @@ select_setup_voice() {
   fi
 
   case "$SELECTED_VOICE" in
-    chesapeake_balanced|chesapeake_balanced_female|cool_street_deadpan) ;;
+    chesapeake_balanced|chesapeake_balanced_female|cool_street_deadpan|fig_warm_deadpan) ;;
     *) die "invalid voice: $SELECTED_VOICE" ;;
   esac
   say "Selected voice: $SELECTED_VOICE"
@@ -759,7 +762,7 @@ run_voice_test() {
     die "agent-voice did not become reachable at $VOICE_SERVER_URL"
   health="$(curl -fsS --max-time 3 "$VOICE_SERVER_URL/v1/health")"
   jq -e --arg model "$QWEN_MODEL_ID" \
-    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "chesapeake_balanced_female", "cool_street_deadpan"])' \
+    '.status == "ok" and .muted == false and .tts_model_id == $model and (.voices | sort == ["chesapeake_balanced", "chesapeake_balanced_female", "cool_street_deadpan", "fig_warm_deadpan"])' \
     <<<"$health" >/dev/null || die \
     "agent-voice health is unexpected or muted: $health"
 
