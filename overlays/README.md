@@ -271,9 +271,10 @@ compatibility but are not forwarded to the current MLX Whisper runtime.
 
 Public voices:
 
-- `chesapeake_balanced` (default)
+- `chesapeake_balanced`
 - `chesapeake_balanced_female`
 - `cool_street_deadpan`
+- `fig_warm_deadpan` (default)
 
 ## Development
 

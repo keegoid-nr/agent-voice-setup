@@ -10,6 +10,7 @@ readonly QWEN_MODEL_ID="mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 readonly QWEN_MODEL_REVISION="7d3824abff87e49756bb0f83fb5411de75d160c4"
 readonly VOICE_SERVER_URL="http://127.0.0.1:8880"
 readonly DEFAULT_VOICE="chesapeake_balanced"
+readonly SETUP_DEFAULT_VOICE="fig_warm_deadpan"
 readonly CLAUDE_BLOCK_BEGIN="<!-- agent-voice-setup:claude-begin -->"
 readonly CLAUDE_BLOCK_END="<!-- agent-voice-setup:claude-end -->"
 
@@ -148,10 +149,10 @@ set_selected_voice_from_choice() {
   local choice="$1"
 
   case "$choice" in
-    ""|1) SELECTED_VOICE="chesapeake_balanced" ;;
+    1) SELECTED_VOICE="chesapeake_balanced" ;;
     2) SELECTED_VOICE="chesapeake_balanced_female" ;;
     3) SELECTED_VOICE="cool_street_deadpan" ;;
-    4) SELECTED_VOICE="fig_warm_deadpan" ;;
+    ""|4) SELECTED_VOICE="fig_warm_deadpan" ;;
     *) die "invalid voice selection: $choice (expected 1, 2, 3, or 4)" ;;
   esac
 }
@@ -162,15 +163,15 @@ select_setup_voice() {
   if [[ -z "$SELECTED_VOICE" ]]; then
     if [[ -t 0 ]]; then
       printf '%s\n' "Choose the default agent voice:"
-      printf '%s\n' "  1) Chesapeake Balanced — adult male British baritone (default)"
+      printf '%s\n' "  1) Chesapeake Balanced — adult male British baritone"
       printf '%s\n' "  2) Chesapeake Balanced Female — adult female British contralto"
       printf '%s\n' "  3) Cool Street Deadpan — dry, street-smart female voice"
-      printf '%s\n' "  4) Fig Warm Deadpan — the same dry voice, a touch warmer"
-      printf '%s' "Selection [1]: "
+      printf '%s\n' "  4) Fig Warm Deadpan — the same dry voice, a touch warmer (default)"
+      printf '%s' "Selection [4]: "
       IFS= read -r choice || choice=""
       set_selected_voice_from_choice "$choice"
     else
-      SELECTED_VOICE="$DEFAULT_VOICE"
+      SELECTED_VOICE="$SETUP_DEFAULT_VOICE"
     fi
   fi
 

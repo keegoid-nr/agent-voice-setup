@@ -4,9 +4,11 @@ One-command setup for local agent voice on macOS Apple Silicon:
 
 - `agent-voice` on `127.0.0.1:8880`, managed by launchd, a Claude-started
   session supervisor, or a foreground terminal.
-- Qwen3-TTS VoiceDesign through MLX-Audio with `chesapeake_balanced` as the
-  general default, `chesapeake_balanced_female` as its contralto counterpart,
-  `cool_street_deadpan` retained for compatibility, and `fig_warm_deadpan` as its warmer variant.
+- Qwen3-TTS VoiceDesign through MLX-Audio with `fig_warm_deadpan` as the
+  default, `chesapeake_balanced` as the adult male baritone,
+  `chesapeake_balanced_female` as its contralto counterpart,
+  and `cool_street_deadpan` retained for compatibility (`fig_warm_deadpan` is
+  its warmer variant).
 - Claude Code progress cues timed like Codex: start, important boundary, and
   closing handoff.
 - A final audible synthesis test that loads Qwen and validates the generated
@@ -43,7 +45,7 @@ Interactive terminal runs ask which default voice to install:
 3. `cool_street_deadpan` — dry, street-smart female voice
 4. `fig_warm_deadpan` — the same dry voice, a touch warmer
 
-Press Enter to choose `chesapeake_balanced`. For automation or noninteractive
+Press Enter to choose `fig_warm_deadpan`. For automation or noninteractive
 runs, pass the choice explicitly; noninteractive runs without a choice use the
 same default and never wait for input:
 
@@ -122,8 +124,8 @@ AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh
 ## Server configuration
 
 `setup.sh` verifies a pinned agent-voice checkout, applies the tracked
-three-voice `chesapeake_balanced`/`chesapeake_balanced_female`/
-`cool_street_deadpan` catalog overlay, and delegates runtime setup to that
+four-voice `chesapeake_balanced`/`chesapeake_balanced_female`/
+`cool_street_deadpan`/`fig_warm_deadpan` catalog overlay, and delegates runtime setup to that
 temporary verified source. The installed server is configured as follows:
 
 The temporary source is assembled from a work-approved runtime allowlist. It
