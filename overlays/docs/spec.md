@@ -74,7 +74,7 @@ default.
   - accepts JSON fields:
     - `model`, default `qwen3-tts`
     - `input`, required non-empty text
-    - `voice`, default `chesapeake_balanced`
+    - `voice`, default `fig_warm_deadpan`
     - `response_format`, default `wav`
     - `language`, default `English`
     - `instruct`, optional custom voice-design prompt
@@ -154,10 +154,10 @@ default.
 
 Public voice names are:
 
-- `chesapeake_balanced` (default)
+- `chesapeake_balanced`
 - `chesapeake_balanced_female`
 - `cool_street_deadpan`
-- `fig_warm_deadpan`
+- `fig_warm_deadpan` (default)
 
 ## Agent Helpers
 

@@ -39,10 +39,10 @@ source "$SETUP_PATH"
 
 SELECTED_VOICE=""
 select_setup_voice >/dev/null
-[[ "$SELECTED_VOICE" == "chesapeake_balanced" ]]
+[[ "$SELECTED_VOICE" == "fig_warm_deadpan" ]]
 
 for choice_and_voice in \
-  ':chesapeake_balanced' \
+  ':fig_warm_deadpan' \
   '1:chesapeake_balanced' \
   '2:chesapeake_balanced_female' \
   '3:cool_street_deadpan' \
