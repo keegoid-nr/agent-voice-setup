@@ -576,7 +576,10 @@ Speak at these moments:
 
 Keep cues concise and specific. Do not narrate tiny read-only commands. Invoke
 the helper directly with one quoted message argument; do not wait for playback
-or treat a speech failure as a task failure.
+or treat a speech failure as a task failure. The helper already detaches and
+returns immediately, so run it in the foreground. Never set run_in_background:
+a background task completing after the turn ends wakes the session with a
+spurious extra turn.
 
 Stand down when a plugin owns speech for the session. If the context carries an
 \`[NR-CASEWORK VOICE]\` reminder or an \`NR_CASEWORK_VOICE:\` cue contract, the
