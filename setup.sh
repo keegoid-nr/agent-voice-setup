@@ -382,6 +382,8 @@ install_agent_voice() {
 
   [[ -x "$SOURCE_DIR/install.sh" ]] || die "verified source is missing executable install.sh"
   install_source="$(prepare_install_source)"
+  # mlx only ships wheels for cp312-cp314; keep uv off newer system Pythons.
+  export UV_PYTHON="${UV_PYTHON:-3.13}"
   if [[ "$SERVICE_MODE" == "launchd" ]]; then
     "$install_source/install.sh" --source-dir "$install_source" --no-codex-config
   else
