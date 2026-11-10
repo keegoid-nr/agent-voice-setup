@@ -155,11 +155,35 @@ STARTUP_PHRASE="Alone, code. Synced, the Figment!"
 write_claude_instructions
 grep -Fq '`Fig here.`' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
-grep -Fq 'speak `Alone, code. Synced, the Figment!` once' "$CLAUDE_INSTRUCTIONS"
-! grep -Fq 'Fig here. Alone' "$CLAUDE_INSTRUCTIONS"
+! grep -Fq 'Startup phrase:' "$CLAUDE_INSTRUCTIONS"
 [[ "$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
-AGENT_NAME=""
+
+startup_prefix="\"$AGENT_SPEAK\" "
+configure_claude_startup_hook
+configure_claude_startup_hook
+jq -e --arg prefix "$startup_prefix" '
+  [.hooks.SessionStart[] | select(.matcher == "startup")] as $s
+  | ($s | length) == 1
+  and ($s[0].hooks[0].command | startswith($prefix))
+  and ($s[0].hooks[0].command | contains("Alone, code. Synced, the Figment!"))
+  and ($s[0].hooks[0].command | endswith("|| true"))
+  and ([.hooks.SessionStart[].hooks[] | select(.command == "existing-session-hook")] | length == 1)
+' "$CLAUDE_SETTINGS" >/dev/null
+STARTUP_PHRASE="It's alive"
+configure_claude_startup_hook
+jq -e '
+  [.hooks.SessionStart[] | select(.matcher == "startup")] as $s
+  | ($s | length) == 1
+  and ($s[0].hooks[0].command | contains("'"'"'It'"'"'\\'"'"''"'"'s alive'"'"'"))
+' "$CLAUDE_SETTINGS" >/dev/null
 STARTUP_PHRASE=""
+configure_claude_startup_hook
+jq -e '
+  ([.hooks.SessionStart[] | select(.matcher == "startup")] | length) == 0
+  and ([.hooks.SessionStart[].hooks[] | select(.command == "existing-session-hook")] | length == 1)
+' "$CLAUDE_SETTINGS" >/dev/null
+
+AGENT_NAME=""
 write_claude_instructions
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'Startup phrase:' "$CLAUDE_INSTRUCTIONS"

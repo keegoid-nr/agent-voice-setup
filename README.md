@@ -128,10 +128,13 @@ defaults. For automation:
 AGENT_VOICE_SETUP_NAME=Claudette ./setup.sh
 ```
 
-With those options Claude says "Fig here." before each cue and opens a new
-session with "Alone, code. Synced, the Figment!" (no name prefix). Re-run setup to
-change either; the managed block in `~/.claude/CLAUDE.md` is rewritten in
-place. To override the whole prefix instead of just the name:
+With those options Claude says "Fig here." before each cue, and a
+`SessionStart` hook (matcher `startup`) speaks "Alone, code. Synced, the
+Figment!" (no name prefix) when a new session begins. The hook does not fire on
+resume, `/clear`, or compaction, and it never fails the session if speech is
+offline. Re-run setup to change either; the managed block in
+`~/.claude/CLAUDE.md` and the startup hook in `~/.claude/settings.json` are
+rewritten in place, and an empty phrase removes the hook. To override the whole prefix instead of just the name:
 
 ```bash
 AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh

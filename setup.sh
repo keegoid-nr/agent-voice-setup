@@ -556,18 +556,9 @@ backup_path() {
 }
 
 write_claude_instructions() {
-  local begin_count=0 end_count=0 stripped rendered helper speaker startup_section original_mode
+  local begin_count=0 end_count=0 stripped rendered helper speaker original_mode
   helper="$AGENT_SPEAK"
   speaker="${AGENT_VOICE_CLAUDE_SPEAKER:-${AGENT_NAME:-$DEFAULT_AGENT_NAME} here.}"
-  startup_section=""
-  if [[ -n "${STARTUP_PHRASE:-}" ]]; then
-    startup_section="
-
-Startup phrase: at the start of a new session, before the first exploration or
-edit cue, speak \`$STARTUP_PHRASE\` once, verbatim and without the \`$speaker\`
-prefix (the no-exclamation rule does not apply to it). Skip it when resuming, continuing after compaction,
-or on later turns."
-  fi
 
   if [[ -f "$CLAUDE_INSTRUCTIONS" ]]; then
     begin_count="$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS" || true)"
@@ -606,7 +597,7 @@ agent-voice server and the \`$SELECTED_VOICE\` Qwen3-TTS voice. Voice is
 operator telemetry, never the task: if speech is offline, continue working.
 
 Every spoken message must begin with \`$speaker\` so the speaker is clear away
-from the screen.$startup_section
+from the screen.
 
 Delivery: dry, composed, and clipped. Lead with the result, then stop. At most
 one quiet dry observation per cue, only when it sharpens the point. No
@@ -713,11 +704,57 @@ configure_claude_session_hook() {
   chmod 600 "$CLAUDE_SETTINGS"
 }
 
+# Speaks the startup phrase from a SessionStart hook scoped to the "startup"
+# matcher, so resume, clear, and compaction stay quiet and it never depends on
+# the model remembering an instruction. Re-running replaces any earlier phrase.
+configure_claude_startup_hook() {
+  local command phrase temp_settings
+  phrase="${STARTUP_PHRASE:-}"
+  command="\"$AGENT_SPEAK\" '${phrase//\'/\'\\\'\'}' >/dev/null 2>&1 || true"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ -n "$phrase" ]]; then
+      would add-claude-startup-hook "$command"
+    else
+      would remove-claude-startup-hook
+    fi
+    return 0
+  fi
+
+  temp_settings="$(mktemp "$TEMP_ROOT/claude-startup-hook.XXXXXX")"
+  jq --arg prefix "\"$AGENT_SPEAK\" " --arg command "$command" --arg phrase "$phrase" '
+    .hooks = (.hooks // {})
+    | .hooks.SessionStart = (
+        [(.hooks.SessionStart // [])[]
+          | select(
+              .matcher? != "startup"
+              or (([.hooks[]? | .command? // ""] | map(startswith($prefix)) | any) | not)
+            )
+        ]
+      )
+    | if $phrase != ""
+      then .hooks.SessionStart += [{
+        matcher: "startup",
+        hooks: [{
+          type: "command",
+          command: $command,
+          timeout: 10
+        }]
+      }]
+      else .
+      end
+  ' "$CLAUDE_SETTINGS" >"$temp_settings" ||
+    die "could not merge the startup hook into $CLAUDE_SETTINGS"
+  mv "$temp_settings" "$CLAUDE_SETTINGS"
+  chmod 600 "$CLAUDE_SETTINGS"
+}
+
 configure_claude() {
-  say "Configuring Claude Code voice timing, helper permission, and server lifecycle"
+  say "Configuring Claude Code voice timing, helper permission, startup phrase, and server lifecycle"
   write_claude_instructions
   configure_claude_permission
   configure_claude_session_hook
+  configure_claude_startup_hook
 }
 
 start_selected_service() {
