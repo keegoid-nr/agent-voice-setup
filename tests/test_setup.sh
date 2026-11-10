@@ -145,9 +145,24 @@ grep -Fq 'chesapeake_balanced' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'cool_street_deadpan' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'Delivery: dry, composed, and clipped.' "$CLAUDE_INSTRUCTIONS"
+! grep -Fq 'Startup phrase:' "$CLAUDE_INSTRUCTIONS"
 grep -Fq 'no exclamation marks' "$CLAUDE_INSTRUCTIONS"
 grep -Fq '`[NR-CASEWORK VOICE]` reminder' "$CLAUDE_INSTRUCTIONS"
 [[ "$(/usr/bin/stat -f '%Lp' "$CLAUDE_INSTRUCTIONS")" == "640" ]]
+
+AGENT_NAME="Fig"
+STARTUP_PHRASE="Alone, code. Synced, the Figment!"
+write_claude_instructions
+grep -Fq '`Fig here.`' "$CLAUDE_INSTRUCTIONS"
+! grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
+grep -Fq 'speak `Alone, code. Synced, the Figment!` once' "$CLAUDE_INSTRUCTIONS"
+! grep -Fq 'Fig here. Alone' "$CLAUDE_INSTRUCTIONS"
+[[ "$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
+AGENT_NAME=""
+STARTUP_PHRASE=""
+write_claude_instructions
+grep -Fq 'Claude Code here.' "$CLAUDE_INSTRUCTIONS"
+! grep -Fq 'Startup phrase:' "$CLAUDE_INSTRUCTIONS"
 
 rule="Bash($AGENT_SPEAK:*)"
 session_command="\"$AGENT_VOICE_SESSION\" start"

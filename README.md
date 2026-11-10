@@ -88,6 +88,7 @@ Useful options:
 ./setup.sh --dry-run
 ./setup.sh --no-play
 ./setup.sh --voice chesapeake_balanced_female
+./setup.sh --name Fig --startup-phrase "Alone, code. Synced, the Figment!"
 ./setup.sh --service-mode session
 ./setup.sh --service-mode foreground
 ```
@@ -115,7 +116,22 @@ Existing Claude files are preserved outside a marked managed block. Before
 editing them, setup writes copies under `~/.agent-voice/backups/setup-*`.
 The upstream agent-voice installer also backs up the installed app and shims.
 
-To use a different spoken identity prefix:
+### Spoken name and startup phrase
+
+Claude introduces every cue as "Claude Code here." You can pick another name,
+and optionally add a phrase spoken once at the start of each new session
+(none by default). Interactive runs ask for both; press Enter to keep the
+defaults. For automation:
+
+```bash
+./setup.sh --name Fig --startup-phrase "Alone, code. Synced, the Figment!"
+AGENT_VOICE_SETUP_NAME=Claudette ./setup.sh
+```
+
+With those options Claude says "Fig here." before each cue and opens a new
+session with "Alone, code. Synced, the Figment!" (no name prefix). Re-run setup to
+change either; the managed block in `~/.claude/CLAUDE.md` is rewritten in
+place. To override the whole prefix instead of just the name:
 
 ```bash
 AGENT_VOICE_CLAUDE_SPEAKER="My agent here." ./setup.sh

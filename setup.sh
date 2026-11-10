@@ -38,6 +38,10 @@ DRY_RUN=0
 PLAY_TEST=1
 SERVICE_MODE="launchd"
 SELECTED_VOICE="${AGENT_VOICE_SETUP_VOICE:-}"
+readonly DEFAULT_AGENT_NAME="Claude Code"
+AGENT_NAME="${AGENT_VOICE_SETUP_NAME:-}"
+STARTUP_PHRASE="${AGENT_VOICE_SETUP_STARTUP_PHRASE-}"
+STARTUP_PHRASE_SET="${AGENT_VOICE_SETUP_STARTUP_PHRASE+1}"
 FOREGROUND_SERVICE_STARTED=0
 TEMP_ROOT=""
 
@@ -50,6 +54,9 @@ Options:
   --voice NAME         Default voice: chesapeake_balanced,
                        chesapeake_balanced_female, cool_street_deadpan, or
                        fig_warm_deadpan.
+  --name NAME          Name Claude speaks as: "NAME here." (default: Claude Code).
+  --startup-phrase TEXT
+                       Phrase spoken once at session start (default: none).
   --dry-run           Print the planned operations without changing the laptop.
   --no-play           Generate and validate the test WAV without playing it.
   -h, --help          Show this help.
@@ -121,6 +128,17 @@ parse_args() {
         SELECTED_VOICE="$2"
         shift 2
         ;;
+      --name)
+        [[ $# -ge 2 ]] || die "missing value for --name"
+        AGENT_NAME="$2"
+        shift 2
+        ;;
+      --startup-phrase)
+        [[ $# -ge 2 ]] || die "missing value for --startup-phrase"
+        STARTUP_PHRASE="$2"
+        STARTUP_PHRASE_SET=1
+        shift 2
+        ;;
       --dry-run)
         DRY_RUN=1
         shift
@@ -180,6 +198,28 @@ select_setup_voice() {
     *) die "invalid voice: $SELECTED_VOICE" ;;
   esac
   say "Selected voice: $SELECTED_VOICE"
+}
+
+select_agent_identity() {
+  if [[ -t 0 ]]; then
+    if [[ -z "$AGENT_NAME" ]]; then
+      printf '%s' "Name Claude speaks as [$DEFAULT_AGENT_NAME]: "
+      IFS= read -r AGENT_NAME || AGENT_NAME=""
+    fi
+    if [[ -z "$STARTUP_PHRASE_SET" ]]; then
+      printf '%s' "Spoken startup phrase, e.g. Alone, code. Synced, the Figment! [none]: "
+      IFS= read -r STARTUP_PHRASE || STARTUP_PHRASE=""
+    fi
+  fi
+  AGENT_NAME="${AGENT_NAME:-$DEFAULT_AGENT_NAME}"
+
+  case "$AGENT_NAME$STARTUP_PHRASE" in
+    *$'\n'*|*$'\r'*) die "agent name and startup phrase must be a single line" ;;
+  esac
+  say "Spoken name: $AGENT_NAME here."
+  if [[ -n "$STARTUP_PHRASE" ]]; then
+    say "Startup phrase: $STARTUP_PHRASE"
+  fi
 }
 
 require_platform() {
@@ -516,9 +556,18 @@ backup_path() {
 }
 
 write_claude_instructions() {
-  local begin_count=0 end_count=0 stripped rendered helper speaker original_mode
+  local begin_count=0 end_count=0 stripped rendered helper speaker startup_section original_mode
   helper="$AGENT_SPEAK"
-  speaker="${AGENT_VOICE_CLAUDE_SPEAKER:-Claude Code here.}"
+  speaker="${AGENT_VOICE_CLAUDE_SPEAKER:-${AGENT_NAME:-$DEFAULT_AGENT_NAME} here.}"
+  startup_section=""
+  if [[ -n "${STARTUP_PHRASE:-}" ]]; then
+    startup_section="
+
+Startup phrase: at the start of a new session, before the first exploration or
+edit cue, speak \`$STARTUP_PHRASE\` once, verbatim and without the \`$speaker\`
+prefix (the no-exclamation rule does not apply to it). Skip it when resuming, continuing after compaction,
+or on later turns."
+  fi
 
   if [[ -f "$CLAUDE_INSTRUCTIONS" ]]; then
     begin_count="$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS" || true)"
@@ -557,7 +606,7 @@ agent-voice server and the \`$SELECTED_VOICE\` Qwen3-TTS voice. Voice is
 operator telemetry, never the task: if speech is offline, continue working.
 
 Every spoken message must begin with \`$speaker\` so the speaker is clear away
-from the screen.
+from the screen.$startup_section
 
 Delivery: dry, composed, and clipped. Lead with the result, then stop. At most
 one quiet dry observation per cue, only when it sharpens the point. No
@@ -784,7 +833,7 @@ run_voice_test() {
     --voice "$SELECTED_VOICE" \
     --output "$wav" \
     "${play_args[@]}" \
-    "Agent voice is installed. Qwen three T T S is running locally, and Claude Code is ready to speak progress summaries."
+    "Agent voice is installed. Qwen three T T S is running locally, and ${AGENT_NAME:-$DEFAULT_AGENT_NAME} is ready to speak progress summaries."
 
   "$STATE_DIR/app/.venv/bin/python" - "$wav" <<'PY'
 import sys
@@ -835,6 +884,7 @@ print_summary() {
 main() {
   parse_args "$@"
   select_setup_voice
+  select_agent_identity
   require_platform
   trap cleanup EXIT
   if [[ "$DRY_RUN" -eq 1 ]]; then
