@@ -158,7 +158,7 @@ grep -Fq '`Fig here.`' "$CLAUDE_INSTRUCTIONS"
 ! grep -Fq 'Startup phrase:' "$CLAUDE_INSTRUCTIONS"
 [[ "$(grep -Fxc "$CLAUDE_BLOCK_BEGIN" "$CLAUDE_INSTRUCTIONS")" -eq 1 ]]
 
-startup_prefix="\"$AGENT_SPEAK\" "
+startup_prefix="AGENT_VOICE_SPEAK_LOCK_WAIT_SECONDS=10 \"$AGENT_SPEAK\" "
 configure_claude_startup_hook
 configure_claude_startup_hook
 jq -e --arg prefix "$startup_prefix" '

@@ -707,10 +707,12 @@ configure_claude_session_hook() {
 # Speaks the startup phrase from a SessionStart hook scoped to the "startup"
 # matcher, so resume, clear, and compaction stay quiet and it never depends on
 # the model remembering an instruction. Re-running replaces any earlier phrase.
+# Other agents often hold the voice lock, so wait up to 10s for it (the helper
+# detaches, so the hook still returns at once) instead of dropping the phrase.
 configure_claude_startup_hook() {
   local command phrase temp_settings
   phrase="${STARTUP_PHRASE:-}"
-  command="\"$AGENT_SPEAK\" '${phrase//\'/\'\\\'\'}' >/dev/null 2>&1 || true"
+  command="AGENT_VOICE_SPEAK_LOCK_WAIT_SECONDS=10 \"$AGENT_SPEAK\" '${phrase//\'/\'\\\'\'}' >/dev/null 2>&1 || true"
 
   if [[ "$DRY_RUN" -eq 1 ]]; then
     if [[ -n "$phrase" ]]; then
@@ -722,13 +724,13 @@ configure_claude_startup_hook() {
   fi
 
   temp_settings="$(mktemp "$TEMP_ROOT/claude-startup-hook.XXXXXX")"
-  jq --arg prefix "\"$AGENT_SPEAK\" " --arg command "$command" --arg phrase "$phrase" '
+  jq --arg quoted "\"$AGENT_SPEAK\" " --arg bare "$AGENT_SPEAK " --arg command "$command" --arg phrase "$phrase" '
     .hooks = (.hooks // {})
     | .hooks.SessionStart = (
         [(.hooks.SessionStart // [])[]
           | select(
               .matcher? != "startup"
-              or (([.hooks[]? | .command? // ""] | map(startswith($prefix)) | any) | not)
+              or (([.hooks[]? | .command? // ""] | map(contains($quoted) or startswith($bare)) | any) | not)
             )
         ]
       )
